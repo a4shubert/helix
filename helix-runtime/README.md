@@ -4,23 +4,22 @@ Asynchronous runtime and worker library for the Helix platform.
 
 ## Purpose
 
-`helix-runtime` is the orchestration layer that reacts to accepted trades, rebuilds
-portfolio state through `helix-core`, persists refreshed snapshots, and publishes
-follow-up update events.
+`helix-runtime` is the orchestration layer that rebuilds portfolio state through
+`helix-core`, persists refreshed snapshots, and publishes follow-up update events.
 
 The first implemented path is:
 
-1. Consume `trade.created`
+1. Consume `portfolio.recompute` from RabbitMQ
 2. Load the affected portfolio trades and latest market inputs from `helix-store`
 3. Call `helix-core.compute_portfolio_analytics(...)`
-4. Persist refreshed `position_snapshot`, `pnl_snapshot`, and `risk_snapshot`
-5. Mark the triggering trade as `processed`
-6. Publish `portfolio.updated`, `pnl.updated`, and `risk.updated`
+4. Persist refreshed `position`, `pnl`, and `risk`
+5. Mark the triggering trade as `processed` (when `sourceEventId` is provided)
+6. Publish `positions.updated`, `pl.updated`, and `risk.updated` to Kafka
 
 ## Modules
 
-- `helix_runtime.processor.TradeCreatedProcessor`
-  - application service for the `trade.created` flow
+- `helix_runtime.processor.PortfolioRecomputeProcessor`
+  - application service for the `portfolio.recompute` flow
 - `helix_runtime.sqlite_store.SqliteHelixStore`
   - SQLite-backed store adapter over `helix.db`
 - `helix_runtime.publisher`
@@ -28,19 +27,16 @@ The first implemented path is:
 
 ## RabbitMQ and Kafka Roles
 
-Use Kafka for domain events that other services may replay or subscribe to:
+Use Kafka for audit and downstream state-change events:
 
 - `trade.created`
-- `portfolio.updated`
-- `pnl.updated`
+- `positions.updated`
+- `pl.updated`
 - `risk.updated`
 
-Use RabbitMQ for operational work queues where point-to-point delivery is a better
-fit than event history:
+Use RabbitMQ for execution triggers:
 
-- `positions.build`
-- `pl.compute`
-- `risk.compute`
+- `portfolio.recompute`
 
 That split keeps business events auditable in Kafka while letting RabbitMQ handle
 worker-style jobs cleanly.
@@ -84,8 +80,8 @@ PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli process
 
 `helix-runtime` can now run as an actual long-lived worker:
 
-- Kafka consumer for `trade.created`
-- RabbitMQ worker for operational task queues
+- Kafka consumer for `trade.created` observability (optional)
+- RabbitMQ worker for `portfolio.recompute` execution
 
 Run the Kafka consumer:
 
@@ -120,18 +116,14 @@ PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli run-rab
   --max-tasks 1
 ```
 
-## Next Broker Adapters
+## Broker Model
 
-The next concrete integration points should be:
+Current model:
 
-- Kafka consumer for `trade.created`
-  - deserialize the event
-  - call `TradeCreatedProcessor.process(...)`
-- Kafka producer for `portfolio.updated`, `pnl.updated`, and `risk.updated`
-  - replace `LoggingEventPublisher`
-- RabbitMQ worker for operational jobs
-  - submit/consume tasks like `positions.build`
-  - use the same processor/store primitives rather than duplicating business logic
+- `helix-rest` persists trades and emits Kafka `trade.created` (audit only)
+- `helix-rest` also submits RabbitMQ `portfolio.recompute` tasks
+- `helix-runtime` consumes RabbitMQ tasks, recomputes positions/P&L/risk, persists state
+- `helix-runtime` then publishes `positions.updated`, `pl.updated`, `risk.updated` to Kafka
 
 ## Broker Adapters
 
@@ -153,7 +145,7 @@ pip install -e ./helix-runtime[brokers]
 
 The processor itself still does not depend on Kafka or RabbitMQ. That separation is
 intentional: the broker layer only transports messages, while the application logic
-stays in `TradeCreatedProcessor`.
+stays in `PortfolioRecomputeProcessor`.
 
 ## Broker-Oriented CLI
 

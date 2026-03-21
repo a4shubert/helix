@@ -38,10 +38,9 @@ def _parse_task_payload(body: bytes | str | dict[str, Any]) -> RabbitMqTask:
 class KafkaTradeCreatedConsumer:
     """Consume trade.created events from Kafka for observability/local tooling only."""
 
-    def __init__(self, db_path: str, config: KafkaConfig, rabbitmq_config: RabbitMqConfig) -> None:
+    def __init__(self, db_path: str, config: KafkaConfig) -> None:
         self._db_path = db_path
         self._config = config
-        self._rabbitmq_config = rabbitmq_config
 
     def run(self, *, max_messages: int | None = None) -> int:
         try:

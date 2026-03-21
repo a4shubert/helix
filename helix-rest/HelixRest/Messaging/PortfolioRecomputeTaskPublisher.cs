@@ -6,7 +6,7 @@ namespace HelixRest.Messaging;
 
 public interface IPortfolioRecomputeTaskPublisher
 {
-    Task PublishAsync(string portfolioId, string sourceEventId, DateTime requestedAt, CancellationToken cancellationToken);
+    Task PublishAsync(string portfolioId, string? sourceEventId, DateTime requestedAt, CancellationToken cancellationToken);
 }
 
 public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomputeTaskPublisher
@@ -18,18 +18,23 @@ public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomput
         _options = options.Value;
     }
 
-    public Task PublishAsync(string portfolioId, string sourceEventId, DateTime requestedAt, CancellationToken cancellationToken)
+    public Task PublishAsync(string portfolioId, string? sourceEventId, DateTime requestedAt, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        var payload = JsonSerializer.SerializeToUtf8Bytes(new
+        var payloadBody = new Dictionary<string, object?>
         {
-            taskId = $"TASK-{sourceEventId}",
-            taskType = BrokerNames.PortfolioRecomputeQueue,
-            portfolioId,
-            requestedAt = requestedAt.ToUniversalTime().ToString("O").Replace("+00:00", "Z"),
-            sourceEventId
-        });
+            ["taskId"] = $"TASK-{Guid.NewGuid():N}".ToUpperInvariant(),
+            ["taskType"] = BrokerNames.PortfolioRecomputeQueue,
+            ["portfolioId"] = portfolioId,
+            ["requestedAt"] = requestedAt.ToUniversalTime().ToString("O").Replace("+00:00", "Z"),
+        };
+        if (!string.IsNullOrWhiteSpace(sourceEventId))
+        {
+            payloadBody["sourceEventId"] = sourceEventId;
+        }
+
+        var payload = JsonSerializer.SerializeToUtf8Bytes(payloadBody);
 
         var factory = new ConnectionFactory
         {

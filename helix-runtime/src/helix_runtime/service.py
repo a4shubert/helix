@@ -1,4 +1,4 @@
-"""Combined runtime service for running all long-lived Helix workers."""
+"""Runtime service for running the long-lived Helix RabbitMQ worker."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class RuntimeServiceConfig:
 
 
 class RuntimeService:
-    """Run Kafka and RabbitMQ worker loops together as one local service."""
+    """Run runtime worker loops as one local service."""
 
     def __init__(self, config: RuntimeServiceConfig) -> None:
         self._config = config

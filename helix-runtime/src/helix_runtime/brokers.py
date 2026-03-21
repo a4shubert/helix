@@ -74,17 +74,22 @@ class RabbitMqTaskPublisher:
 
     def publish_task(self, queue: str, task: RabbitMqTask) -> PublishedRabbitMqTask:
         payload = task.to_payload()
-        channel = self._open_channel()
-        channel.queue_declare(queue=queue, durable=True)
-        channel.basic_publish(
-            exchange="",
-            routing_key=queue,
-            body=json.dumps(payload).encode("utf-8"),
-            properties=self._properties(),
-        )
+        connection = self._open_connection()
+        try:
+            channel = connection.channel()
+            channel.queue_declare(queue=queue, durable=True)
+            channel.basic_publish(
+                exchange="",
+                routing_key=queue,
+                body=json.dumps(payload).encode("utf-8"),
+                properties=self._properties(),
+            )
+        finally:
+            if connection.is_open:
+                connection.close()
         return PublishedRabbitMqTask(queue=queue, payload=payload)
 
-    def _open_channel(self):
+    def _open_connection(self):
         try:
             import pika
         except ImportError as exc:
@@ -100,8 +105,7 @@ class RabbitMqTaskPublisher:
             virtual_host=self._config.virtual_host,
             credentials=credentials,
         )
-        connection = pika.BlockingConnection(parameters)
-        return connection.channel()
+        return pika.BlockingConnection(parameters)
 
     @staticmethod
     def _properties():

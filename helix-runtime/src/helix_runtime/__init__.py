@@ -5,13 +5,11 @@ from .broker_names import (
     ALERT_CREATED_TOPIC,
     KAFKA_TOPICS,
     MARKETDATA_UPDATED_TOPIC,
-    PNL_UPDATED_TOPIC,
-    PORTFOLIO_UPDATED_TOPIC,
-    PL_COMPUTE_QUEUE,
-    POSITIONS_BUILD_QUEUE,
+    PL_UPDATED_TOPIC,
+    PORTFOLIO_RECOMPUTE_QUEUE,
+    POSITIONS_UPDATED_TOPIC,
     RABBITMQ_QUEUES,
     RISK_UPDATED_TOPIC,
-    RISK_COMPUTE_QUEUE,
     TRADE_AMENDED_TOPIC,
     TRADE_CANCELLED_TOPIC,
     TRADE_CREATED_TOPIC,
@@ -31,7 +29,7 @@ from .models import (
     TradeCreatedEvent,
     TradeProcessingResult,
 )
-from .processor import PortfolioFullRevalueProcessor, TradeCreatedProcessor
+from .processor import PortfolioRecomputeProcessor, TradeCreatedProcessor
 from .publisher import InMemoryEventPublisher, LoggingEventPublisher
 from .service import RuntimeService, RuntimeServiceConfig
 from .sqlite_store import SqliteHelixStore
@@ -45,13 +43,12 @@ __all__ = [
     "MARKETDATA_UPDATED_TOPIC",
     "InMemoryEventPublisher",
     "LoggingEventPublisher",
-    "PNL_UPDATED_TOPIC",
+    "PL_UPDATED_TOPIC",
     "PersistedAnalytics",
-    "PORTFOLIO_UPDATED_TOPIC",
-    "PL_COMPUTE_QUEUE",
+    "PORTFOLIO_RECOMPUTE_QUEUE",
     "PortfolioUpdateEvent",
-    "PortfolioFullRevalueProcessor",
-    "POSITIONS_BUILD_QUEUE",
+    "PortfolioRecomputeProcessor",
+    "POSITIONS_UPDATED_TOPIC",
     "PublishedRabbitMqTask",
     "RABBITMQ_QUEUES",
     "RabbitMqConfig",
@@ -59,7 +56,6 @@ __all__ = [
     "RabbitMqTaskWorker",
     "RabbitMqTaskPublisher",
     "RISK_UPDATED_TOPIC",
-    "RISK_COMPUTE_QUEUE",
     "RuntimeService",
     "RuntimeServiceConfig",
     "SqliteHelixStore",

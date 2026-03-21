@@ -27,7 +27,7 @@ if (string.IsNullOrWhiteSpace(urlsToUse))
 builder.WebHost.UseUrls(urlsToUse);
 Console.WriteLine($"[HelixRest] Binding URLs: {urlsToUse}");
 
-var helixWebUrl = Environment.GetEnvironmentVariable("HELIX_WEB_URL") ?? "http://localhost:3001";
+var helixWebUrl = Environment.GetEnvironmentVariable("HELIX_WEB_URL") ?? "http://localhost:3000";
 var allowedWebOrigins = new[]
 {
     helixWebUrl,
@@ -170,6 +170,30 @@ app.MapGet("/api/portfolios", async (HelixContext db) =>
         .ToListAsync();
 
     return Results.Ok(portfolios);
+}).WithTags("portfolio");
+
+app.MapPost("/api/portfolios/{portfolioId}/recompute", async (
+    string portfolioId,
+    HelixContext db,
+    IPortfolioRecomputeTaskPublisher taskPublisher,
+    CancellationToken cancellationToken) =>
+{
+    var exists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId, cancellationToken);
+    if (!exists)
+    {
+        return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
+    }
+
+    var requestedAt = DateTime.UtcNow;
+    await taskPublisher.PublishAsync(portfolioId, null, requestedAt, cancellationToken);
+
+    return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
+    {
+        portfolioId,
+        status = "queued",
+        queue = BrokerNames.PortfolioRecomputeQueue,
+        requestedAt
+    });
 }).WithTags("portfolio");
 
 app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixContext db) =>
@@ -351,97 +375,212 @@ app.MapGet("/api/trade-form-options", async (HelixContext db) =>
     });
 }).WithTags("trades");
 
-app.MapGet("/api/pnl", async (string portfolioId, DateTime? asOf, HelixContext db) =>
+app.MapGet("/api/pnl", async (string portfolioId, DateTime? asOf, HelixContext db, CancellationToken cancellationToken) =>
 {
-    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId);
+    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId, cancellationToken);
     if (!portfolioExists)
     {
         return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
     }
 
-    var query = db.PnlSnapshots
-        .AsNoTracking()
-        .Where(x => x.PortfolioId == portfolioId);
-
-    if (asOf.HasValue)
-    {
-        query = query.Where(x => x.ValuationTs <= asOf.Value);
-    }
-
-    var snapshot = await query
-        .OrderByDescending(x => x.ValuationTs)
-        .FirstOrDefaultAsync();
-
-    return snapshot is null
-        ? Results.Ok(new
+    var metricColumns = await LoadNumericMetricColumnsAsync(db, "pnl", cancellationToken);
+    var snapshot = await LoadLatestSnapshotRowAsync(db, "pnl", portfolioId, asOf, metricColumns, cancellationToken);
+    var metrics = metricColumns
+        .Select((column, index) => new
         {
-            snapshotId = string.Empty,
-            portfolioId,
-            totalPnl = 0.0,
-            realizedPnl = 0.0,
-            unrealizedPnl = 0.0,
-            valuationTs = string.Empty,
-            marketDataAsOfTs = string.Empty,
-            positionAsOfTs = string.Empty
+            metricKey = column,
+            label = ToMetricLabel(column),
+            value = snapshot?.MetricValues.GetValueOrDefault(column) ?? 0.0,
+            isPrimary = index == 0
         })
-        : Results.Ok(new
-        {
-            snapshotId = snapshot.SnapshotId,
-            portfolioId = snapshot.PortfolioId,
-            totalPnl = snapshot.TotalPnl,
-            realizedPnl = snapshot.RealizedPnl,
-            unrealizedPnl = snapshot.UnrealizedPnl,
-            valuationTs = snapshot.ValuationTs,
-            marketDataAsOfTs = snapshot.MarketDataAsOfTs,
-            positionAsOfTs = snapshot.PositionAsOfTs
-        });
+        .ToList();
+
+    return Results.Ok(new
+    {
+        snapshotId = snapshot?.SnapshotId ?? string.Empty,
+        portfolioId = snapshot?.PortfolioId ?? portfolioId,
+        totalPnl = snapshot?.MetricValues.GetValueOrDefault("total_pnl") ?? 0.0,
+        realizedPnl = snapshot?.MetricValues.GetValueOrDefault("realized_pnl") ?? 0.0,
+        unrealizedPnl = snapshot?.MetricValues.GetValueOrDefault("unrealized_pnl") ?? 0.0,
+        valuationTs = snapshot?.ValuationTs ?? string.Empty,
+        marketDataAsOfTs = snapshot?.MarketDataAsOfTs ?? string.Empty,
+        positionAsOfTs = snapshot?.PositionAsOfTs ?? string.Empty,
+        metrics
+    });
 }).WithTags("analytics");
 
-app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext db) =>
+app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext db, CancellationToken cancellationToken) =>
 {
-    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId);
+    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId, cancellationToken);
     if (!portfolioExists)
     {
         return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
     }
 
-    var query = db.RiskSnapshots
-        .AsNoTracking()
-        .Where(x => x.PortfolioId == portfolioId);
+    var metricColumns = await LoadNumericMetricColumnsAsync(db, "risk", cancellationToken);
+    var snapshot = await LoadLatestSnapshotRowAsync(db, "risk", portfolioId, asOf, metricColumns, cancellationToken);
+    var metrics = metricColumns
+        .Select((column, index) => new
+        {
+            metricKey = column,
+            label = ToMetricLabel(column),
+            value = snapshot?.MetricValues.GetValueOrDefault(column) ?? 0.0,
+            isPrimary = index == 0
+        })
+        .ToList();
 
-    if (asOf.HasValue)
+    return Results.Ok(new
     {
-        query = query.Where(x => x.ValuationTs <= asOf.Value);
+        snapshotId = snapshot?.SnapshotId ?? string.Empty,
+        portfolioId = snapshot?.PortfolioId ?? portfolioId,
+        delta = snapshot?.MetricValues.GetValueOrDefault("delta") ?? 0.0,
+        gamma = snapshot?.MetricValues.GetValueOrDefault("gamma") ?? 0.0,
+        var95 = snapshot?.MetricValues.GetValueOrDefault("var_95") ?? 0.0,
+        valuationTs = snapshot?.ValuationTs ?? string.Empty,
+        marketDataAsOfTs = snapshot?.MarketDataAsOfTs ?? string.Empty,
+        positionAsOfTs = snapshot?.PositionAsOfTs ?? string.Empty,
+        metrics
+    });
+}).WithTags("analytics");
+
+static async Task<List<string>> LoadNumericMetricColumnsAsync(
+    HelixContext db,
+    string tableName,
+    CancellationToken cancellationToken)
+{
+    EnsureAllowedSnapshotTable(tableName);
+    var metadataColumns = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+    {
+        "snapshot_id",
+        "portfolio_id",
+        "valuation_ts",
+        "market_data_as_of_ts",
+        "position_as_of_ts"
+    };
+
+    var columns = new List<string>();
+    await using var connection = db.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+    {
+        await connection.OpenAsync(cancellationToken);
     }
 
-    var snapshot = await query
-        .OrderByDescending(x => x.ValuationTs)
-        .FirstOrDefaultAsync();
+    await using var command = connection.CreateCommand();
+    command.CommandText = $"PRAGMA table_info({tableName})";
+    await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+    while (await reader.ReadAsync(cancellationToken))
+    {
+        var columnName = reader["name"]?.ToString();
+        var columnType = reader["type"]?.ToString();
+        if (string.IsNullOrWhiteSpace(columnName) || metadataColumns.Contains(columnName))
+        {
+            continue;
+        }
 
-    return snapshot is null
-        ? Results.Ok(new
+        if (columnType is null)
         {
-            snapshotId = string.Empty,
-            portfolioId,
-            delta = 0.0,
-            gamma = 0.0,
-            var95 = 0.0,
-            valuationTs = string.Empty,
-            marketDataAsOfTs = string.Empty,
-            positionAsOfTs = string.Empty
-        })
-        : Results.Ok(new
+            continue;
+        }
+
+        var normalizedType = columnType.ToUpperInvariant();
+        if (normalizedType.Contains("REAL")
+            || normalizedType.Contains("NUM")
+            || normalizedType.Contains("INT")
+            || normalizedType.Contains("FLOAT")
+            || normalizedType.Contains("DOUBLE")
+            || normalizedType.Contains("DECIMAL"))
         {
-            snapshotId = snapshot.SnapshotId,
-            portfolioId = snapshot.PortfolioId,
-            delta = snapshot.Delta,
-            gamma = snapshot.Gamma,
-            var95 = snapshot.Var95,
-            valuationTs = snapshot.ValuationTs,
-            marketDataAsOfTs = snapshot.MarketDataAsOfTs,
-            positionAsOfTs = snapshot.PositionAsOfTs
+            columns.Add(columnName);
+        }
+    }
+
+    return columns;
+}
+
+static async Task<SnapshotRow?> LoadLatestSnapshotRowAsync(
+    HelixContext db,
+    string tableName,
+    string portfolioId,
+    DateTime? asOf,
+    IReadOnlyCollection<string> metricColumns,
+    CancellationToken cancellationToken)
+{
+    EnsureAllowedSnapshotTable(tableName);
+    await using var connection = db.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+    {
+        await connection.OpenAsync(cancellationToken);
+    }
+
+    await using var command = connection.CreateCommand();
+    command.CommandText = $"""
+        SELECT *
+        FROM {tableName}
+        WHERE portfolio_id = @portfolioId
+          AND (@asOf IS NULL OR valuation_ts <= @asOf)
+        ORDER BY valuation_ts DESC
+        LIMIT 1
+        """;
+
+    var portfolioParameter = command.CreateParameter();
+    portfolioParameter.ParameterName = "@portfolioId";
+    portfolioParameter.Value = portfolioId;
+    command.Parameters.Add(portfolioParameter);
+
+    var asOfParameter = command.CreateParameter();
+    asOfParameter.ParameterName = "@asOf";
+    asOfParameter.Value = asOf?.ToUniversalTime().ToString("O").Replace("+00:00", "Z") ?? (object)DBNull.Value;
+    command.Parameters.Add(asOfParameter);
+
+    await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+    if (!await reader.ReadAsync(cancellationToken))
+    {
+        return null;
+    }
+
+    var values = metricColumns.ToDictionary(column => column, _ => 0.0, StringComparer.OrdinalIgnoreCase);
+    foreach (var column in metricColumns)
+    {
+        var raw = reader[column];
+        if (raw is DBNull)
+        {
+            continue;
+        }
+
+        values[column] = Convert.ToDouble(raw);
+    }
+
+    return new SnapshotRow(
+        SnapshotId: reader["snapshot_id"]?.ToString() ?? string.Empty,
+        PortfolioId: reader["portfolio_id"]?.ToString() ?? portfolioId,
+        ValuationTs: reader["valuation_ts"]?.ToString() ?? string.Empty,
+        MarketDataAsOfTs: reader["market_data_as_of_ts"]?.ToString() ?? string.Empty,
+        PositionAsOfTs: reader["position_as_of_ts"]?.ToString() ?? string.Empty,
+        MetricValues: values
+    );
+}
+
+static void EnsureAllowedSnapshotTable(string tableName)
+{
+    if (!string.Equals(tableName, "pnl", StringComparison.OrdinalIgnoreCase)
+        && !string.Equals(tableName, "risk", StringComparison.OrdinalIgnoreCase))
+    {
+        throw new InvalidOperationException($"Unsupported snapshot table '{tableName}'.");
+    }
+}
+
+static string ToMetricLabel(string metricKey)
+{
+    var words = metricKey
+        .Split('_', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+        .Select(word => word.ToUpperInvariant() switch
+        {
+            "PNL" => "P&L",
+            "VAR" => "VaR",
+            _ => char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant()
         });
-}).WithTags("analytics");
+    return string.Join(" ", words);
+}
 
 static async Task<InstrumentEntity?> LoadValidInstrumentAsync(
     HelixContext db,
@@ -610,4 +749,13 @@ public sealed record CreateTradeRequest(
     DateOnly? SettlementDate,
     string? Book,
     int? Version
+);
+
+sealed record SnapshotRow(
+    string SnapshotId,
+    string PortfolioId,
+    string ValuationTs,
+    string MarketDataAsOfTs,
+    string PositionAsOfTs,
+    Dictionary<string, double> MetricValues
 );

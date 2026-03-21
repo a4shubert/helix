@@ -29,7 +29,7 @@ function MetricRows({ metrics }: { metrics: MetricValue[] }) {
     <div className="w-full space-y-4">
       {metrics.map((metric) => (
         <div
-          key={metric.label}
+          key={metric.metricKey}
           className="grid w-full grid-cols-2 items-end border-b border-white/6 pb-3 last:border-b-0 last:pb-0"
         >
           <span className="text-center text-xl text-white">{metric.label}</span>
@@ -61,7 +61,7 @@ export function PortfolioSummaryCard({
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const totalPnL = pnlMetrics.find((metric) => metric.label === "Total P&L")?.value ?? 0;
+  const totalPnL = pnlMetrics.find((metric) => metric.isPrimary)?.value ?? pnlMetrics[0]?.value ?? 0;
   const subtitle = formatAsOfTimestamp(valuationTimestamp);
 
   return (

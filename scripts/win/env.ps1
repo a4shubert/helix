@@ -17,10 +17,10 @@ if (-not $Env:ASPNETCORE_ENVIRONMENT -or [string]::IsNullOrWhiteSpace($Env:ASPNE
     $Env:ASPNETCORE_ENVIRONMENT = "Production"
 }
 if (-not $Env:HELIX_WEB_URL -or [string]::IsNullOrWhiteSpace($Env:HELIX_WEB_URL)) {
-    $Env:HELIX_WEB_URL = "http://localhost:3001"
+    $Env:HELIX_WEB_URL = "http://localhost:3000"
 }
 if (-not $Env:HELIX_WEB_PORT -or [string]::IsNullOrWhiteSpace($Env:HELIX_WEB_PORT)) {
-    $Env:HELIX_WEB_PORT = "3001"
+    $Env:HELIX_WEB_PORT = "3000"
 }
 if (-not $Env:HELIX_KAFKA_BOOTSTRAP_SERVERS -or [string]::IsNullOrWhiteSpace($Env:HELIX_KAFKA_BOOTSTRAP_SERVERS)) {
     $Env:HELIX_KAFKA_BOOTSTRAP_SERVERS = "localhost:9092"

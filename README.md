@@ -429,7 +429,7 @@ Typically internal/admin only.
 Pushes lightweight notifications such as:
 
 - trade processed
-- portfolio updated
+- positions updated
 - P&L updated
 - risk updated
 - alert created
@@ -438,7 +438,7 @@ Pushes lightweight notifications such as:
 
 ```json
 {
-  "type": "pnl.updated",
+  "type": "pl.updated",
   "portfolioId": "PF-001",
   "snapshotId": "PNL-20260321-0923",
   "timestamp": "2026-03-21T09:23:11Z"
@@ -469,11 +469,11 @@ Published when a trade cancellation is accepted.
 
 Published by upstream feed simulator or data ingress.
 
-#### `portfolio.updated`
+#### `positions.updated`
 
 Published after positions are updated.
 
-#### `pnl.updated`
+#### `pl.updated`
 
 Published after P&L snapshot is recomputed.
 
@@ -515,28 +515,20 @@ Published when processing failure or operational exception occurs.
 
 ## 8. RabbitMQ queues/tasks
 
-RabbitMQ is used for scheduled or heavyweight background work.
+RabbitMQ is used for operational execution triggers.
 
 ### 8.1 Queues
 
-#### `portfolio.full_revalue`
+#### `portfolio.recompute`
 
-Triggers full-book revaluation.
-
-#### `rebuild.positions`
-
-Triggers state rebuild or recovery.
-
-#### `recompute.risk.full`
-
-Triggers full risk recomputation.
+Triggers runtime recomputation for one portfolio.
 
 ### 8.2 Task payload example
 
 ```json
 {
   "taskId": "TASK-4001",
-  "taskType": "portfolio.full_revalue",
+  "taskType": "portfolio.recompute",
   "portfolioId": "PF-001",
   "requestedAt": "2026-03-21T10:00:00Z"
 }
@@ -769,13 +761,14 @@ Trader -> helix-web: Enter trade
 helix-web -> helix-rest: POST /api/trades
 helix-rest -> helix-store: Persist accepted trade record
 helix-rest -> Kafka: Publish trade.created
+helix-rest -> RabbitMQ: Submit portfolio.recompute
 helix-rest -> helix-web: Immediate accepted response
 
-Kafka -> helix-runtime: Consume trade.created
+RabbitMQ -> helix-runtime: Consume portfolio.recompute
 helix-runtime -> helix-core: Reprice affected portfolio, recompute risk
 helix-core -> helix-runtime: Return analytics
 helix-runtime -> helix-store: Update positions, pnl snapshot, risk snapshot, trade status
-helix-runtime -> Kafka: Publish portfolio.updated / pnl.updated / risk.updated
+helix-runtime -> Kafka: Publish positions.updated / pl.updated / risk.updated
 
 Kafka -> helix-rest: Update notification
 helix-rest -> helix-web: Push update via WebSocket/SSE
@@ -823,7 +816,7 @@ helix-runtime -> helix-store: Persist new market data snapshot
 helix-runtime -> helix-core: Reprice affected instruments / portfolios
 helix-core -> helix-runtime: Return updated analytics
 helix-runtime -> helix-store: Persist pnl/risk/derived updates
-helix-runtime -> Kafka: Publish portfolio.updated / pnl.updated / risk.updated
+helix-runtime -> Kafka: Publish positions.updated / pl.updated / risk.updated
 helix-rest -> helix-web: Push update
 helix-web -> User: Refresh market data, pnl, risk, portfolio views
 ```
@@ -831,13 +824,13 @@ helix-web -> User: Refresh market data, pnl, risk, portfolio views
 ### 11.7 Hourly full revaluation
 
 ```text
-Scheduler -> RabbitMQ: Submit portfolio.full_revalue
+Scheduler -> RabbitMQ: Submit portfolio.recompute
 
 RabbitMQ -> helix-runtime: Consume full revalue task
 helix-runtime -> helix-store: Load latest positions and market data
 helix-runtime -> helix-core: Full-book valuation and risk recomputation
 helix-runtime -> helix-store: Persist full snapshots
-helix-runtime -> Kafka: Publish portfolio.updated / pnl.updated / risk.updated
+helix-runtime -> Kafka: Publish positions.updated / pl.updated / risk.updated
 helix-rest -> helix-web: Push update
 helix-web -> User: Show refreshed snapshots
 ```
@@ -845,7 +838,7 @@ helix-web -> User: Show refreshed snapshots
 ### 11.8 End-of-day reconciliation
 
 ```text
-Scheduler -> RabbitMQ: Submit recompute.risk.full / portfolio.full_revalue
+Scheduler -> RabbitMQ: Submit portfolio.recompute
 RabbitMQ -> helix-runtime: Consume tasks
 helix-runtime -> helix-core: Full recomputation from persisted state
 helix-runtime -> helix-store: Persist EOD snapshots

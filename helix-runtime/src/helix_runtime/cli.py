@@ -132,7 +132,7 @@ def _build_parser() -> argparse.ArgumentParser:
 
     service = subparsers.add_parser(
         "run-service",
-        help="Run the combined helix-runtime service with Kafka and RabbitMQ workers.",
+        help="Run the long-lived helix-runtime RabbitMQ worker service.",
     )
     service.add_argument(
         "--db-path",
@@ -152,7 +152,7 @@ def _build_parser() -> argparse.ArgumentParser:
     replay.add_argument(
         "--skip-rabbitmq",
         action="store_true",
-        help="Only publish trade.created events to Kafka and skip RabbitMQ full revalues.",
+        help="Only publish trade.created events to Kafka and skip RabbitMQ recompute tasks.",
     )
 
     return parser
@@ -234,8 +234,7 @@ def _build_trade_created_message(args: argparse.Namespace) -> int:
 def _run_kafka_trade_consumer(args: argparse.Namespace) -> int:
     db_path = str(Path(args.db_path).resolve())
     config = load_kafka_config_from_env()
-    rabbitmq_config = load_rabbitmq_config_from_env()
-    consumer = KafkaTradeCreatedConsumer(db_path, config, rabbitmq_config)
+    consumer = KafkaTradeCreatedConsumer(db_path, config)
     processed = consumer.run(max_messages=args.max_messages)
     print(
         json.dumps(
@@ -361,13 +360,13 @@ def _replay_trades(args: argparse.Namespace) -> int:
         for portfolio_id in sorted({portfolio_id for _, portfolio_id, _ in trades}):
             task = RabbitMqTask(
                 task_id=f"TASK-{uuid4().hex[:12].upper()}",
-                task_type="positions.build",
+                task_type=rabbitmq_config.portfolio_recompute_queue,
                 portfolio_id=portfolio_id,
                 requested_at=datetime.now(UTC),
             )
             queued_revalues.append(
                 task_publisher.publish_task(
-                    rabbitmq_config.positions_build_queue,
+                    rabbitmq_config.portfolio_recompute_queue,
                     task,
                 ).payload
             )
@@ -378,7 +377,9 @@ def _replay_trades(args: argparse.Namespace) -> int:
                 "cleared": cleared_counts,
                 "replayed_trade_count": len(trades),
                 "kafka_topic": kafka_config.trade_created_topic,
-                "rabbitmq_queue": None if args.skip_rabbitmq else rabbitmq_config.positions_build_queue,
+                "rabbitmq_queue": None
+                if args.skip_rabbitmq
+                else rabbitmq_config.portfolio_recompute_queue,
                 "revalue_tasks": queued_revalues,
             },
             indent=2,
