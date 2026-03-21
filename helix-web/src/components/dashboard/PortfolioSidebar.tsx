@@ -87,7 +87,7 @@ export function PortfolioSidebar<K extends string>({
   return (
     <>
       <div aria-hidden className="w-[15vw] min-w-[280px] shrink-0" />
-      <aside className="fixed left-[5vw] top-[calc(var(--hbc-header-h)+1.25rem)] z-20 w-[15vw] min-w-[280px] max-h-[calc(100dvh-var(--hbc-header-h)-2.5rem)] overflow-y-auto rounded-lg border border-[color:var(--color-border)] [background:var(--color-card)]">
+      <aside className="fixed left-[5vw] top-[calc(var(--hbc-header-h)+2.5rem)] z-20 w-[15vw] min-w-[280px] max-h-[calc(100dvh-var(--hbc-header-h)-3.75rem)] overflow-y-auto rounded-lg border border-[color:var(--color-border)] [background:var(--color-card)]">
         <SidebarContent
           portfolios={portfolios}
           selected={selected}

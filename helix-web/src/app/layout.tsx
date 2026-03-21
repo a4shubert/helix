@@ -22,7 +22,9 @@ export default function RootLayout({
           className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden"
         >
           <Header />
-          <main className="min-h-0 flex-1 overflow-auto px-[5vw] py-5">{children}</main>
+          <main className="min-h-0 flex-1 overflow-auto px-[5vw] py-5">
+            {children}
+          </main>
         </div>
       </body>
     </html>

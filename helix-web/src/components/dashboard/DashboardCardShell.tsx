@@ -37,10 +37,12 @@ export function DashboardCardShell({
           type="button"
           onClick={onToggle}
           aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-2xl font-light leading-none text-white transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center overflow-visible rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-white transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
           title={collapsed ? "Expand card" : "Collapse card"}
         >
-          {collapsed ? "+" : "-"}
+          <span className="block translate-y-[-2px] text-[1.5rem] font-light leading-[0.7]">
+            {collapsed ? "+" : "-"}
+          </span>
         </button>
 
         <div

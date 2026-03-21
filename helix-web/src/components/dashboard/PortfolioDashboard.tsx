@@ -35,9 +35,9 @@ export function PortfolioDashboard() {
   const [portfolioItems, setPortfolioItems] = useState<PortfolioListItem[]>([]);
   const [collapsedCards, setCollapsedCards] = useState({
     summary: false,
-    trades: false,
-    position: false,
-    marketData: false,
+    trades: true,
+    position: true,
+    marketData: true,
   });
   const [portfolioById, setPortfolioById] = useState<Record<string, PortfolioResponse>>({});
   const [tradesByPortfolio, setTradesByPortfolio] = useState<Record<string, PortfolioTrade[]>>({});
