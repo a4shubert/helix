@@ -233,10 +233,10 @@ class SqliteHelixStore:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO risk (
-                  snapshot_id, portfolio_id, delta, gamma, var_95, stress_loss,
+                  snapshot_id, portfolio_id, delta, gamma, var_95,
                   valuation_ts, market_data_as_of_ts, position_as_of_ts
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     risk_snapshot_id,
@@ -244,7 +244,6 @@ class SqliteHelixStore:
                     analytics.risk.delta,
                     analytics.risk.gamma,
                     analytics.risk.var_95,
-                    analytics.risk.stress_loss,
                     _isoformat_utc(analytics.risk.valuation_ts),
                     _isoformat_utc(market_data_as_of_ts),
                     _isoformat_utc(valuation_ts),

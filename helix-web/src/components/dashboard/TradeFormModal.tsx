@@ -8,9 +8,10 @@ import {
   type TradeFormInstrumentOption,
   type TradeFormOptionsResponse,
 } from "@/lib/api/helix";
-import type { PortfolioTrade } from "@/lib/mock/trades";
+import type { PortfolioTrade } from "@/lib/api/types";
 
 type TradeFormValues = {
+  asset_class: string;
   instrument_id: string;
   side: string;
   quantity: string;
@@ -21,6 +22,7 @@ type TradeFormValues = {
 
 function toFormValues(_portfolioId: string, trade?: PortfolioTrade | null): TradeFormValues {
   return {
+    asset_class: trade?.asset_class ?? "",
     instrument_id: trade?.instrument_id ?? "",
     side: trade?.side ?? "BUY",
     quantity: trade ? String(trade.quantity) : "",
@@ -31,6 +33,7 @@ function toFormValues(_portfolioId: string, trade?: PortfolioTrade | null): Trad
 }
 
 const emptyOptions: TradeFormOptionsResponse = {
+  assetClasses: [],
   instruments: [],
   books: [],
 };
@@ -79,12 +82,20 @@ export function TradeFormModal({
         }
         setOptions(response);
         setForm((current) => {
-          if (current.instrument_id || response.instruments.length === 0) {
-            return current;
-          }
+          const assetClass = current.asset_class || response.assetClasses[0] || "";
+          const filteredInstruments = response.instruments.filter(
+            (instrument) => instrument.assetClass === assetClass,
+          );
+          const nextInstrumentId =
+            current.instrument_id &&
+            filteredInstruments.some((instrument) => instrument.instrumentId === current.instrument_id)
+              ? current.instrument_id
+              : filteredInstruments[0]?.instrumentId ?? "";
+
           return {
             ...current,
-            instrument_id: response.instruments[0].instrumentId,
+            asset_class: assetClass,
+            instrument_id: nextInstrumentId,
           };
         });
       })
@@ -104,6 +115,34 @@ export function TradeFormModal({
       isCancelled = true;
     };
   }, [open]);
+
+  const filteredInstruments = useMemo(
+    () =>
+      options.instruments.filter((instrument) =>
+        form.asset_class ? instrument.assetClass === form.asset_class : true,
+      ),
+    [form.asset_class, options.instruments],
+  );
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    setForm((current) => {
+      if (
+        current.instrument_id &&
+        filteredInstruments.some((instrument) => instrument.instrumentId === current.instrument_id)
+      ) {
+        return current;
+          }
+
+      return {
+        ...current,
+        instrument_id: filteredInstruments[0]?.instrumentId ?? "",
+      };
+    });
+  }, [filteredInstruments, open]);
 
   const selectedInstrument = useMemo<TradeFormInstrumentOption | null>(
     () => options.instruments.find((instrument) => instrument.instrumentId === form.instrument_id) ?? null,
@@ -172,17 +211,35 @@ export function TradeFormModal({
 
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="space-y-2 xl:col-span-4">
+            <label className="space-y-2 xl:col-span-1">
+              <span className="text-sm text-white">Asset Class</span>
+              <select
+                value={form.asset_class}
+                onChange={(event) => updateField("asset_class", event.target.value)}
+                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                required
+                disabled={isLoadingOptions || options.assetClasses.length === 0}
+              >
+                <option value="">Select asset class</option>
+                {options.assetClasses.map((assetClass) => (
+                  <option key={assetClass} value={assetClass}>
+                    {assetClass}
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="space-y-2 xl:col-span-3">
               <span className="text-sm text-white">Instrument</span>
               <select
                 value={form.instrument_id}
                 onChange={(event) => updateField("instrument_id", event.target.value)}
                 className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
                 required
-                disabled={isLoadingOptions || options.instruments.length === 0}
+                disabled={isLoadingOptions || filteredInstruments.length === 0}
               >
                 <option value="">Select instrument</option>
-                {options.instruments.map((instrument) => (
+                {filteredInstruments.map((instrument) => (
                   <option key={instrument.instrumentId} value={instrument.instrumentId}>
                     {instrument.instrumentName}
                   </option>
@@ -190,14 +247,6 @@ export function TradeFormModal({
               </select>
             </label>
 
-            <label className="space-y-2">
-              <span className="text-sm text-white">Asset Class</span>
-              <input
-                value={selectedInstrument?.assetClass ?? ""}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none"
-                readOnly
-              />
-            </label>
             <label className="space-y-2">
               <span className="text-sm text-white">Side</span>
               <select

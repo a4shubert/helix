@@ -13,9 +13,9 @@ MARKET_DATA_SEED_PATH = ROOT / "helix-store" / "market_data_seed.json"
 INSTRUMENT_SEED_TRADES_PATH = ROOT / "helix-store" / "instrument_seed_trades.json"
 
 PORTFOLIOS = [
-    ("PF-EQ", "Equity"),
-    ("PF-FI", "Fixed Income"),
-    ("PF-CM", "Commodities"),
+    ("PF-EQ", "Equity", 1),
+    ("PF-FI", "Fixed Income", 2),
+    ("PF-CM", "Commodities", 3),
 ]
 
 BOOK_BY_ASSET_CLASS = {
@@ -93,13 +93,13 @@ def main() -> None:
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(schema_sql)
 
-        for instrument_id, name in PORTFOLIOS:
+        for portfolio_id, name, sort_order in PORTFOLIOS:
             conn.execute(
                 """
-                INSERT INTO portfolio (portfolio_id, name, status, created_at)
-                VALUES (?, ?, 'active', '2026-03-21T09:30:00Z')
+                INSERT INTO portfolio (portfolio_id, name, sort_order, status, created_at)
+                VALUES (?, ?, ?, 'active', '2026-03-21T09:30:00Z')
                 """,
-                (instrument_id, name),
+                (portfolio_id, name, sort_order),
             )
 
         for instrument in instruments:

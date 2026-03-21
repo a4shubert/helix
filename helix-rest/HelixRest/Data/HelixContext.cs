@@ -23,6 +23,7 @@ public class HelixContext : DbContext
             entity.HasKey(x => x.PortfolioId);
             entity.Property(x => x.PortfolioId).HasColumnName("portfolio_id");
             entity.Property(x => x.Name).HasColumnName("name");
+            entity.Property(x => x.SortOrder).HasColumnName("sort_order");
             entity.Property(x => x.Status).HasColumnName("status");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
         });
@@ -125,7 +126,6 @@ public class HelixContext : DbContext
             entity.Property(x => x.Delta).HasColumnName("delta");
             entity.Property(x => x.Gamma).HasColumnName("gamma");
             entity.Property(x => x.Var95).HasColumnName("var_95");
-            entity.Property(x => x.StressLoss).HasColumnName("stress_loss");
             entity.Property(x => x.ValuationTs).HasColumnName("valuation_ts");
             entity.Property(x => x.MarketDataAsOfTs).HasColumnName("market_data_as_of_ts");
             entity.Property(x => x.PositionAsOfTs).HasColumnName("position_as_of_ts");

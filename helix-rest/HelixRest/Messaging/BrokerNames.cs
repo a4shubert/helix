@@ -6,6 +6,7 @@ public static class BrokerNames
     public const string PortfolioUpdatedTopic = "portfolio.updated";
     public const string PnlUpdatedTopic = "pnl.updated";
     public const string RiskUpdatedTopic = "risk.updated";
+    public const string PortfolioFullRevalueQueue = "portfolio.full_revalue";
 
     public static readonly string[] UpdateTopics =
     [

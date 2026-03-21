@@ -7,7 +7,6 @@ public class RiskSnapshotEntity
     public double Delta { get; set; }
     public double? Gamma { get; set; }
     public double? Var95 { get; set; }
-    public double? StressLoss { get; set; }
     public DateTime ValuationTs { get; set; }
     public DateTime MarketDataAsOfTs { get; set; }
     public DateTime PositionAsOfTs { get; set; }

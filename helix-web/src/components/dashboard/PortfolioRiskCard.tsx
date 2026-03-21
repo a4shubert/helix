@@ -1,4 +1,4 @@
-import type { MetricValue } from "@/lib/mock/portfolio";
+import type { MetricValue } from "@/lib/api/types";
 import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { formatSignedInteger } from "@/lib/format/number";
 

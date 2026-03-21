@@ -51,8 +51,21 @@ builder.Services.Configure<HelixKafkaOptions>(options =>
 {
     options.BootstrapServers = Environment.GetEnvironmentVariable("HELIX_KAFKA_BOOTSTRAP_SERVERS") ?? string.Empty;
 });
+builder.Services.Configure<HelixRabbitMqOptions>(options =>
+{
+    options.Host = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_HOST") ?? "localhost";
+    options.Port = int.TryParse(Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PORT"), out var port)
+        ? port
+        : 5672;
+    options.Username = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_USERNAME") ?? "guest";
+    options.Password = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PASSWORD") ?? "guest";
+    options.VirtualHost = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_VHOST") ?? "/";
+    options.PortfolioFullRevalueQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_FULL_REVALUE")
+        ?? BrokerNames.PortfolioFullRevalueQueue;
+});
 builder.Services.AddSingleton<UpdateStreamBroadcaster>();
 builder.Services.AddSingleton<ITradeCreatedPublisher, KafkaTradeCreatedPublisher>();
+builder.Services.AddSingleton<IPortfolioRevalueTaskPublisher, RabbitMqPortfolioRevalueTaskPublisher>();
 builder.Services.AddHostedService<KafkaPortfolioUpdateConsumerService>();
 
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
@@ -147,7 +160,8 @@ app.MapGet("/api/portfolios", async (HelixContext db) =>
 {
     var portfolios = await db.Portfolios
         .AsNoTracking()
-        .OrderBy(x => x.PortfolioId)
+        .OrderBy(x => x.SortOrder)
+        .ThenBy(x => x.PortfolioId)
         .Select(x => new
         {
             portfolioId = x.PortfolioId,
@@ -158,6 +172,30 @@ app.MapGet("/api/portfolios", async (HelixContext db) =>
         .ToListAsync();
 
     return Results.Ok(portfolios);
+}).WithTags("portfolio");
+
+app.MapPost("/api/portfolios/{portfolioId}/revalue", async (
+    string portfolioId,
+    HelixContext db,
+    IPortfolioRevalueTaskPublisher publisher,
+    CancellationToken cancellationToken) =>
+{
+    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId, cancellationToken);
+    if (!portfolioExists)
+    {
+        return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
+    }
+
+    var requestedAt = DateTime.UtcNow;
+    await publisher.PublishAsync(portfolioId, requestedAt, cancellationToken);
+
+    return Results.Ok(new
+    {
+        portfolioId,
+        taskType = BrokerNames.PortfolioFullRevalueQueue,
+        status = "queued",
+        requestedAt
+    });
 }).WithTags("portfolio");
 
 app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixContext db) =>
@@ -292,7 +330,6 @@ app.MapGet("/api/trade-form-options", async (HelixContext db) =>
     var instruments = await db.Instruments
         .AsNoTracking()
         .Where(x => x.Active)
-        .OrderBy(x => x.InstrumentName)
         .Select(x => new
         {
             instrumentId = x.InstrumentId,
@@ -308,9 +345,34 @@ app.MapGet("/api/trade-form-options", async (HelixContext db) =>
         .Select(x => x.Name)
         .ToListAsync();
 
+    var assetClasses = instruments
+        .Select(x => x.assetClass)
+        .Distinct()
+        .OrderBy(x => x switch
+        {
+            "Equity" => 0,
+            "Fixed Income" => 1,
+            "Commodity" => 2,
+            _ => 99
+        })
+        .ThenBy(x => x)
+        .ToList();
+
+    var orderedInstruments = instruments
+        .OrderBy(x => x.assetClass switch
+        {
+            "Equity" => 0,
+            "Fixed Income" => 1,
+            "Commodity" => 2,
+            _ => 99
+        })
+        .ThenBy(x => x.instrumentName)
+        .ToList();
+
     return Results.Ok(new
     {
-        instruments,
+        assetClasses,
+        instruments = orderedInstruments,
         books
     });
 }).WithTags("trades");
@@ -390,7 +452,6 @@ app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext 
             delta = 0.0,
             gamma = 0.0,
             var95 = 0.0,
-            stressLoss = 0.0,
             valuationTs = string.Empty,
             marketDataAsOfTs = string.Empty,
             positionAsOfTs = string.Empty
@@ -402,7 +463,6 @@ app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext 
             delta = snapshot.Delta,
             gamma = snapshot.Gamma,
             var95 = snapshot.Var95,
-            stressLoss = snapshot.StressLoss,
             valuationTs = snapshot.ValuationTs,
             marketDataAsOfTs = snapshot.MarketDataAsOfTs,
             positionAsOfTs = snapshot.PositionAsOfTs

@@ -183,14 +183,12 @@ def compute_portfolio_risk(
     - delta is signed gross exposure in base currency
     - gamma is a scaled signed convexity proxy
     - var_95 uses a one-day normal approximation from risk_weight
-    - stress_loss applies a 10% adverse shock to gross market value
     """
     valuation_time = valuation_ts or datetime.now(UTC)
 
     delta = 0.0
     gamma = 0.0
     variance = 0.0
-    stress_loss = 0.0
 
     for position in positions:
         market = market_inputs[position.instrument_id]
@@ -204,7 +202,6 @@ def compute_portfolio_risk(
         delta += signed_exposure
         gamma += signed_quantity_value * 0.1
         variance += (gross_market_value * market.risk_weight) ** 2
-        stress_loss -= gross_market_value * 0.10
 
     var_95 = 1.65 * sqrt(variance)
 
@@ -213,7 +210,6 @@ def compute_portfolio_risk(
         delta=delta,
         gamma=gamma,
         var_95=var_95,
-        stress_loss=stress_loss,
         valuation_ts=valuation_time,
     )
 

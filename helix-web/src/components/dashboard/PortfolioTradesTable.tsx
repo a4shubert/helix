@@ -14,8 +14,8 @@ import { TradeFormModal } from "@/components/dashboard/TradeFormModal";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import type { CreateTradeRequest } from "@/lib/api/helix";
+import type { PortfolioTrade } from "@/lib/api/types";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
-import type { PortfolioTrade } from "@/lib/mock/trades";
 
 function normalizeTrade(trade: PortfolioTrade | Record<string, unknown>): PortfolioTrade {
   const raw = trade as Record<string, unknown>;

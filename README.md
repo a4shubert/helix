@@ -647,7 +647,6 @@ Primary key: `(snapshot_id, instrument_id, field_name)`
 | delta                | REAL          | Example metric        |
 | gamma                | REAL nullable | Example metric        |
 | var_95               | REAL nullable | Example metric        |
-| stress_loss          | REAL nullable | Example metric        |
 | valuation_ts         | DATETIME      | Valuation timestamp   |
 | market_data_as_of_ts | DATETIME      | Market data timestamp |
 | position_as_of_ts    | DATETIME      | Position timestamp    |

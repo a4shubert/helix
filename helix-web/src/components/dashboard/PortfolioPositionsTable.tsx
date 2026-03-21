@@ -12,8 +12,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
+import type { PortfolioPosition, PortfolioResponse } from "@/lib/api/types";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
-import type { PortfolioPosition, PortfolioResponse } from "@/lib/mock/portfolio";
 
 function normalizePosition(
   portfolioId: string,

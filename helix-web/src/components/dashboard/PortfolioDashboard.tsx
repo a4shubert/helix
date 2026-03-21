@@ -10,6 +10,7 @@ import {
   fetchRisk,
   fetchTrades,
   getHelixApiUrl,
+  requestPortfolioRevalue,
   type CreateTradeRequest,
   type PnlSnapshotResponse,
   type PortfolioListItem,
@@ -19,8 +20,7 @@ import { PortfolioPositionsTable } from "@/components/dashboard/PortfolioPositio
 import { PortfolioSidebar } from "@/components/dashboard/PortfolioSidebar";
 import { PortfolioSummaryCard } from "@/components/dashboard/PortfolioSummaryCard";
 import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTable";
-import type { MetricValue, PortfolioResponse } from "@/lib/mock/portfolio";
-import type { PortfolioTrade } from "@/lib/mock/trades";
+import type { MetricValue, PortfolioResponse, PortfolioTrade } from "@/lib/api/types";
 
 const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
   portfolioId,
@@ -49,7 +49,6 @@ function buildRiskMetrics(snapshot?: RiskSnapshotResponse): MetricValue[] {
     { label: "Delta", value: snapshot.delta },
     { label: "Gamma", value: snapshot.gamma ?? 0 },
     { label: "VaR 95", value: snapshot.var95 ?? 0 },
-    { label: "Stress Loss", value: snapshot.stressLoss ?? 0 },
   ];
 }
 
@@ -65,12 +64,16 @@ export function PortfolioDashboard() {
   const [tradesByPortfolio, setTradesByPortfolio] = useState<Record<string, PortfolioTrade[]>>({});
   const [pnlByPortfolio, setPnlByPortfolio] = useState<Record<string, PnlSnapshotResponse>>({});
   const [riskByPortfolio, setRiskByPortfolio] = useState<Record<string, RiskSnapshotResponse>>({});
+  const [revaluatingPortfolio, setRevaluatingPortfolio] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const portfolio = portfolioById[selectedPortfolio] ?? emptyPortfolio(selectedPortfolio);
+  const pnlSnapshot = pnlByPortfolio[selectedPortfolio];
+  const riskSnapshot = riskByPortfolio[selectedPortfolio];
   const pnlMetrics = buildPnlMetrics(pnlByPortfolio[selectedPortfolio]);
   const riskMetrics = buildRiskMetrics(riskByPortfolio[selectedPortfolio]);
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
+  const valuationTimestamp = pnlSnapshot?.valuationTs ?? riskSnapshot?.valuationTs;
 
   async function refreshPortfolio(portfolioId: string) {
     setIsLoading(true);
@@ -111,6 +114,20 @@ export function PortfolioDashboard() {
       await createTrade(trade);
     }
     await refreshPortfolio(selectedPortfolio);
+  }
+
+  async function handleRevaluatePortfolio(portfolioId: string) {
+    setSelectedPortfolio(portfolioId);
+    setRevaluatingPortfolio(portfolioId);
+    setError(null);
+
+    try {
+      await requestPortfolioRevalue(portfolioId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to queue portfolio revaluation.");
+    } finally {
+      setRevaluatingPortfolio(null);
+    }
   }
 
   useEffect(() => {
@@ -179,6 +196,8 @@ export function PortfolioDashboard() {
         }))}
         selected={selectedPortfolio}
         onSelect={(key) => setSelectedPortfolio(key)}
+        onRevaluate={handleRevaluatePortfolio}
+        revaluatingPortfolio={revaluatingPortfolio}
       />
       <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
         {(isLoading || error) && (
@@ -189,6 +208,7 @@ export function PortfolioDashboard() {
         <PortfolioSummaryCard
           pnlMetrics={pnlMetrics}
           riskMetrics={riskMetrics}
+          valuationTimestamp={valuationTimestamp}
           collapsed={collapsedCards.summary}
           onToggle={() => toggleCard("summary")}
         />

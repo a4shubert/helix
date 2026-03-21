@@ -68,7 +68,6 @@ class PortfolioRiskSnapshot:
     delta: float
     gamma: float
     var_95: float
-    stress_loss: float
     valuation_ts: datetime
 
 
