@@ -10,7 +10,7 @@ from .broker_names import RABBITMQ_QUEUES
 from .brokers import KafkaUpdatePublisher
 from .config import KafkaConfig, RabbitMqConfig
 from .events import RabbitMqTask, parse_trade_created_payload
-from .processor import PortfolioFullRevalueProcessor, TradeCreatedProcessor
+from .processor import PortfolioRecomputeProcessor
 from .sqlite_store import SqliteHelixStore
 
 
@@ -31,15 +31,17 @@ def _parse_task_payload(body: bytes | str | dict[str, Any]) -> RabbitMqTask:
         task_type=str(data["taskType"]),
         portfolio_id=str(data["portfolioId"]),
         requested_at=datetime.fromisoformat(requested_at).astimezone(UTC),
+        source_event_id=str(data["sourceEventId"]) if data.get("sourceEventId") else None,
     )
 
 
 class KafkaTradeCreatedConsumer:
-    """Consume trade.created events from Kafka and process them continuously."""
+    """Consume trade.created events from Kafka for observability/local tooling only."""
 
-    def __init__(self, db_path: str, config: KafkaConfig) -> None:
+    def __init__(self, db_path: str, config: KafkaConfig, rabbitmq_config: RabbitMqConfig) -> None:
         self._db_path = db_path
         self._config = config
+        self._rabbitmq_config = rabbitmq_config
 
     def run(self, *, max_messages: int | None = None) -> int:
         try:
@@ -50,9 +52,6 @@ class KafkaTradeCreatedConsumer:
                 "Install helix-runtime with broker extras."
             ) from exc
 
-        store = SqliteHelixStore(self._db_path)
-        publisher = KafkaUpdatePublisher(self._config)
-        processor = TradeCreatedProcessor(store, publisher)
         consumer = KafkaConsumer(
             self._config.trade_created_topic,
             bootstrap_servers=self._config.bootstrap_servers.split(","),
@@ -78,12 +77,11 @@ class KafkaTradeCreatedConsumer:
                         f"offset={message.offset}: {exc}"
                     )
                     continue
-                result = processor.process(event)
                 processed += 1
                 print(
-                    "[helix-runtime] processed trade.created "
-                    f"trade_id={result.trade_id} portfolio_id={result.portfolio_id} "
-                    f"published={len(result.published_events)}"
+                    "[helix-runtime] observed trade.created "
+                    f"trade_id={event.trade_id} portfolio_id={event.portfolio_id} "
+                    f"timestamp={event.occurred_at.isoformat()}"
                 )
                 if max_messages is not None and processed >= max_messages:
                     break
@@ -112,7 +110,7 @@ class RabbitMqTaskWorker:
 
         store = SqliteHelixStore(self._db_path)
         publisher = KafkaUpdatePublisher(self._kafka_config)
-        full_revalue_processor = PortfolioFullRevalueProcessor(store, publisher)
+        recompute_processor = PortfolioRecomputeProcessor(store, publisher)
         target_queues = queue_names or RABBITMQ_QUEUES
 
         credentials = pika.PlainCredentials(self._config.username, self._config.password)
@@ -140,8 +138,8 @@ class RabbitMqTaskWorker:
             nonlocal processed
             task = _parse_task_payload(body)
             try:
-                if method.routing_key == self._config.portfolio_full_revalue_queue:
-                    result = full_revalue_processor.process(task)
+                if method.routing_key == self._config.portfolio_recompute_queue:
+                    result = recompute_processor.process(task)
                     print(
                         "[helix-runtime] processed rabbitmq task "
                         f"task_id={result.task_id} task_type={result.task_type} "

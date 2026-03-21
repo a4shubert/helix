@@ -433,7 +433,6 @@ Pushes lightweight notifications such as:
 - P&L updated
 - risk updated
 - alert created
-- report generated
 
 **Example pushed payload**
 
@@ -523,10 +522,6 @@ RabbitMQ is used for scheduled or heavyweight background work.
 #### `portfolio.full_revalue`
 
 Triggers full-book revaluation.
-
-#### `report.generate`
-
-Triggers report generation.
 
 #### `rebuild.positions`
 
@@ -833,22 +828,18 @@ helix-rest -> helix-web: Push update
 helix-web -> User: Refresh market data, pnl, risk, portfolio views
 ```
 
-### 11.7 Hourly full revaluation and report generation
+### 11.7 Hourly full revaluation
 
 ```text
 Scheduler -> RabbitMQ: Submit portfolio.full_revalue
-Scheduler -> RabbitMQ: Submit report.generate
 
 RabbitMQ -> helix-runtime: Consume full revalue task
 helix-runtime -> helix-store: Load latest positions and market data
 helix-runtime -> helix-core: Full-book valuation and risk recomputation
 helix-runtime -> helix-store: Persist full snapshots
-
-RabbitMQ -> helix-runtime: Consume report.generate task
-helix-runtime -> helix-store: Persist generated report metadata/artifacts
-helix-runtime -> Kafka: Publish report/portfolio update events
+helix-runtime -> Kafka: Publish portfolio.updated / pnl.updated / risk.updated
 helix-rest -> helix-web: Push update
-helix-web -> User: Show latest reports and refreshed snapshots
+helix-web -> User: Show refreshed snapshots
 ```
 
 ### 11.8 End-of-day reconciliation

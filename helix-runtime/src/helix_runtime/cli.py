@@ -234,7 +234,8 @@ def _build_trade_created_message(args: argparse.Namespace) -> int:
 def _run_kafka_trade_consumer(args: argparse.Namespace) -> int:
     db_path = str(Path(args.db_path).resolve())
     config = load_kafka_config_from_env()
-    consumer = KafkaTradeCreatedConsumer(db_path, config)
+    rabbitmq_config = load_rabbitmq_config_from_env()
+    consumer = KafkaTradeCreatedConsumer(db_path, config, rabbitmq_config)
     processed = consumer.run(max_messages=args.max_messages)
     print(
         json.dumps(
@@ -360,13 +361,13 @@ def _replay_trades(args: argparse.Namespace) -> int:
         for portfolio_id in sorted({portfolio_id for _, portfolio_id, _ in trades}):
             task = RabbitMqTask(
                 task_id=f"TASK-{uuid4().hex[:12].upper()}",
-                task_type="portfolio.full_revalue",
+                task_type="positions.build",
                 portfolio_id=portfolio_id,
                 requested_at=datetime.now(UTC),
             )
             queued_revalues.append(
                 task_publisher.publish_task(
-                    rabbitmq_config.portfolio_full_revalue_queue,
+                    rabbitmq_config.positions_build_queue,
                     task,
                 ).payload
             )
@@ -377,7 +378,7 @@ def _replay_trades(args: argparse.Namespace) -> int:
                 "cleared": cleared_counts,
                 "replayed_trade_count": len(trades),
                 "kafka_topic": kafka_config.trade_created_topic,
-                "rabbitmq_queue": None if args.skip_rabbitmq else rabbitmq_config.portfolio_full_revalue_queue,
+                "rabbitmq_queue": None if args.skip_rabbitmq else rabbitmq_config.positions_build_queue,
                 "revalue_tasks": queued_revalues,
             },
             indent=2,

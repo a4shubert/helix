@@ -10,7 +10,6 @@ import {
   fetchRisk,
   fetchTrades,
   getHelixApiUrl,
-  requestPortfolioRevalue,
   type CreateTradeRequest,
   type PnlSnapshotResponse,
   type PortfolioListItem,
@@ -64,7 +63,6 @@ export function PortfolioDashboard() {
   const [tradesByPortfolio, setTradesByPortfolio] = useState<Record<string, PortfolioTrade[]>>({});
   const [pnlByPortfolio, setPnlByPortfolio] = useState<Record<string, PnlSnapshotResponse>>({});
   const [riskByPortfolio, setRiskByPortfolio] = useState<Record<string, RiskSnapshotResponse>>({});
-  const [revaluatingPortfolio, setRevaluatingPortfolio] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const portfolio = portfolioById[selectedPortfolio] ?? emptyPortfolio(selectedPortfolio);
@@ -114,20 +112,6 @@ export function PortfolioDashboard() {
       await createTrade(trade);
     }
     await refreshPortfolio(selectedPortfolio);
-  }
-
-  async function handleRevaluatePortfolio(portfolioId: string) {
-    setSelectedPortfolio(portfolioId);
-    setRevaluatingPortfolio(portfolioId);
-    setError(null);
-
-    try {
-      await requestPortfolioRevalue(portfolioId);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to queue portfolio revaluation.");
-    } finally {
-      setRevaluatingPortfolio(null);
-    }
   }
 
   useEffect(() => {
@@ -196,8 +180,6 @@ export function PortfolioDashboard() {
         }))}
         selected={selectedPortfolio}
         onSelect={(key) => setSelectedPortfolio(key)}
-        onRevaluate={handleRevaluatePortfolio}
-        revaluatingPortfolio={revaluatingPortfolio}
       />
       <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
         {(isLoading || error) && (

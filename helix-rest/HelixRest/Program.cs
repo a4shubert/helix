@@ -54,18 +54,16 @@ builder.Services.Configure<HelixKafkaOptions>(options =>
 builder.Services.Configure<HelixRabbitMqOptions>(options =>
 {
     options.Host = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_HOST") ?? "localhost";
-    options.Port = int.TryParse(Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PORT"), out var port)
-        ? port
-        : 5672;
+    options.Port = int.TryParse(Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PORT"), out var port) ? port : 5672;
     options.Username = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_USERNAME") ?? "guest";
     options.Password = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PASSWORD") ?? "guest";
     options.VirtualHost = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_VHOST") ?? "/";
-    options.PortfolioFullRevalueQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_FULL_REVALUE")
-        ?? BrokerNames.PortfolioFullRevalueQueue;
+    options.PortfolioRecomputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_RECOMPUTE")
+        ?? BrokerNames.PortfolioRecomputeQueue;
 });
 builder.Services.AddSingleton<UpdateStreamBroadcaster>();
 builder.Services.AddSingleton<ITradeCreatedPublisher, KafkaTradeCreatedPublisher>();
-builder.Services.AddSingleton<IPortfolioRevalueTaskPublisher, RabbitMqPortfolioRevalueTaskPublisher>();
+builder.Services.AddSingleton<IPortfolioRecomputeTaskPublisher, RabbitMqPortfolioRecomputeTaskPublisher>();
 builder.Services.AddHostedService<KafkaPortfolioUpdateConsumerService>();
 
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
@@ -172,30 +170,6 @@ app.MapGet("/api/portfolios", async (HelixContext db) =>
         .ToListAsync();
 
     return Results.Ok(portfolios);
-}).WithTags("portfolio");
-
-app.MapPost("/api/portfolios/{portfolioId}/revalue", async (
-    string portfolioId,
-    HelixContext db,
-    IPortfolioRevalueTaskPublisher publisher,
-    CancellationToken cancellationToken) =>
-{
-    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == portfolioId, cancellationToken);
-    if (!portfolioExists)
-    {
-        return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
-    }
-
-    var requestedAt = DateTime.UtcNow;
-    await publisher.PublishAsync(portfolioId, requestedAt, cancellationToken);
-
-    return Results.Ok(new
-    {
-        portfolioId,
-        taskType = BrokerNames.PortfolioFullRevalueQueue,
-        status = "queued",
-        requestedAt
-    });
 }).WithTags("portfolio");
 
 app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixContext db) =>
@@ -498,6 +472,7 @@ app.MapPost("/api/trades", async (
     CreateTradeRequest request,
     HelixContext db,
     ITradeCreatedPublisher publisher,
+    IPortfolioRecomputeTaskPublisher taskPublisher,
     CancellationToken cancellationToken) =>
 {
     var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == request.PortfolioId, cancellationToken);
@@ -548,6 +523,7 @@ app.MapPost("/api/trades", async (
     db.Trades.Add(entity);
     await db.SaveChangesAsync(cancellationToken);
     await publisher.PublishAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
+    await taskPublisher.PublishAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
     return Results.Ok(new
     {
@@ -564,6 +540,7 @@ app.MapPut("/api/trades/{tradeId}", async (
     CreateTradeRequest request,
     HelixContext db,
     ITradeCreatedPublisher publisher,
+    IPortfolioRecomputeTaskPublisher taskPublisher,
     CancellationToken cancellationToken) =>
 {
     var existingTrade = await db.Trades.FirstOrDefaultAsync(x => x.TradeId == tradeId, cancellationToken);
@@ -608,6 +585,7 @@ app.MapPut("/api/trades/{tradeId}", async (
 
     await db.SaveChangesAsync(cancellationToken);
     await publisher.PublishAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
+    await taskPublisher.PublishAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
     return Results.Ok(new
     {

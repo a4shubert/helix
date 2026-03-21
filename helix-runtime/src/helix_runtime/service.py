@@ -8,7 +8,7 @@ import time
 from dataclasses import dataclass
 
 from .config import KafkaConfig, RabbitMqConfig
-from .consumers import KafkaTradeCreatedConsumer, RabbitMqTaskWorker
+from .consumers import RabbitMqTaskWorker
 
 
 @dataclass(frozen=True)
@@ -27,7 +27,6 @@ class RuntimeService:
     def run(self) -> None:
         errors: queue.Queue[BaseException] = queue.Queue()
 
-        kafka_consumer = KafkaTradeCreatedConsumer(self._config.db_path, self._config.kafka)
         rabbit_worker = RabbitMqTaskWorker(
             self._config.db_path,
             self._config.rabbitmq,
@@ -35,11 +34,6 @@ class RuntimeService:
         )
 
         threads = [
-            threading.Thread(
-                target=self._run_named,
-                args=("kafka-trade-consumer", kafka_consumer.run, errors),
-                daemon=True,
-            ),
             threading.Thread(
                 target=self._run_named,
                 args=("rabbitmq-worker", rabbit_worker.run, errors),
@@ -50,7 +44,7 @@ class RuntimeService:
         for thread in threads:
             thread.start()
 
-        print("[helix-runtime] service started: kafka-trade-consumer + rabbitmq-worker")
+        print("[helix-runtime] service started: rabbitmq-worker")
 
         try:
             while True:

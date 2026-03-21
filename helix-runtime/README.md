@@ -38,10 +38,9 @@ Use Kafka for domain events that other services may replay or subscribe to:
 Use RabbitMQ for operational work queues where point-to-point delivery is a better
 fit than event history:
 
-- `portfolio.full_revalue`
-- `rebuild.positions`
-- `recompute.risk.full`
-- `report.generate`
+- `positions.build`
+- `pl.compute`
+- `risk.compute`
 
 That split keeps business events auditable in Kafka while letting RabbitMQ handle
 worker-style jobs cleanly.
@@ -131,7 +130,7 @@ The next concrete integration points should be:
 - Kafka producer for `portfolio.updated`, `pnl.updated`, and `risk.updated`
   - replace `LoggingEventPublisher`
 - RabbitMQ worker for operational jobs
-  - submit/consume tasks like `portfolio.full_revalue`
+  - submit/consume tasks like `positions.build`
   - use the same processor/store primitives rather than duplicating business logic
 
 ## Broker Adapters

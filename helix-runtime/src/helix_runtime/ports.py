@@ -5,7 +5,14 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Protocol
 
-from helix_core import MarketInput, PortfolioAnalytics, Trade
+from helix_core import (
+    MarketInput,
+    PortfolioAnalytics,
+    PortfolioPnlSnapshot,
+    PortfolioRiskSnapshot,
+    PositionSnapshot,
+    Trade,
+)
 
 from .models import PersistedAnalytics
 
@@ -35,6 +42,32 @@ class StoreGateway(Protocol):
         source_event_id: str,
     ) -> PersistedAnalytics:
         """Persist recomputed positions, P&L, and risk snapshots."""
+
+    def save_positions(
+        self,
+        portfolio_id: str,
+        positions: list[PositionSnapshot],
+        *,
+        valuation_ts: datetime,
+        source_event_id: str,
+    ) -> list[str]:
+        """Persist only position snapshots."""
+
+    def save_pnl(
+        self,
+        pnl: PortfolioPnlSnapshot,
+        *,
+        market_data_as_of_ts: datetime,
+    ) -> str:
+        """Persist only the P&L snapshot."""
+
+    def save_risk(
+        self,
+        risk: PortfolioRiskSnapshot,
+        *,
+        market_data_as_of_ts: datetime,
+    ) -> str:
+        """Persist only the risk snapshot."""
 
     def update_trade_status(
         self,

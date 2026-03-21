@@ -24,14 +24,18 @@ class RabbitMqTask:
     task_type: str
     portfolio_id: str
     requested_at: datetime
+    source_event_id: str | None = None
 
     def to_payload(self) -> dict[str, object]:
-        return {
+        payload = {
             "taskId": self.task_id,
             "taskType": self.task_type,
             "portfolioId": self.portfolio_id,
             "requestedAt": _isoformat_utc(self.requested_at),
         }
+        if self.source_event_id:
+            payload["sourceEventId"] = self.source_event_id
+        return payload
 
 
 def parse_trade_created_payload(payload: str | bytes | dict[str, object]) -> TradeCreatedEvent:
@@ -80,8 +84,8 @@ def build_portfolio_update_payload(event: PortfolioUpdateEvent) -> dict[str, obj
 
 def kafka_topic_for_update(event: PortfolioUpdateEvent, config: KafkaConfig) -> str:
     mapping = {
-        "portfolio.updated": config.portfolio_updated_topic,
-        "pnl.updated": config.pnl_updated_topic,
+        "positions.updated": config.positions_updated_topic,
+        "pl.updated": config.pl_updated_topic,
         "risk.updated": config.risk_updated_topic,
     }
     try:

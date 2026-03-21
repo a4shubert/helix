@@ -12,9 +12,6 @@ if [[ -f "${SCRIPT_DIR}/env.sh" ]]; then
   source "${SCRIPT_DIR}/env.sh"
 fi
 
-echo "[runtime_start] Initializing clean Helix DB state..."
-python3 "${REPO_ROOT}/helix-store/init_clean_state.py"
-
 PYTHON_BIN="${RUNTIME_DIR}/.venv/bin/python"
 if [[ ! -x "${PYTHON_BIN}" ]]; then
   if command -v python3 >/dev/null 2>&1; then

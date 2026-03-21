@@ -168,12 +168,42 @@ class SqliteHelixStore:
         market_data_as_of_ts: datetime,
         source_event_id: str,
     ) -> PersistedAnalytics:
-        valuation_ts = analytics.pnl.valuation_ts
+        position_snapshot_ids = self.save_positions(
+            analytics.portfolio_id,
+            analytics.positions,
+            valuation_ts=analytics.pnl.valuation_ts,
+            source_event_id=source_event_id,
+        )
+        pnl_snapshot_id = self.save_pnl(
+            analytics.pnl,
+            market_data_as_of_ts=market_data_as_of_ts,
+        )
+        risk_snapshot_id = self.save_risk(
+            analytics.risk,
+            market_data_as_of_ts=market_data_as_of_ts,
+        )
+
+        return PersistedAnalytics(
+            portfolio_id=analytics.portfolio_id,
+            position_snapshot_ids=position_snapshot_ids,
+            pnl_snapshot_id=pnl_snapshot_id,
+            risk_snapshot_id=risk_snapshot_id,
+            valuation_ts=analytics.pnl.valuation_ts,
+            market_data_as_of_ts=market_data_as_of_ts,
+        )
+
+    def save_positions(
+        self,
+        portfolio_id: str,
+        positions,
+        *,
+        valuation_ts: datetime,
+        source_event_id: str,
+    ) -> list[str]:
         suffix = _snapshot_suffix(valuation_ts)
         position_snapshot_ids: list[str] = []
-
         with self._connect() as connection:
-            for position in analytics.positions:
+            for position in positions:
                 snapshot_id = f"POSITION-{position.position_id}-{suffix}"
                 position_snapshot_ids.append(snapshot_id)
                 connection.execute(
@@ -188,7 +218,7 @@ class SqliteHelixStore:
                     """,
                     (
                         snapshot_id,
-                        position.portfolio_id,
+                        portfolio_id,
                         position.position_id,
                         position.instrument_id,
                         position.instrument_name,
@@ -207,8 +237,18 @@ class SqliteHelixStore:
                         source_event_id,
                     ),
                 )
+            connection.commit()
+        return position_snapshot_ids
 
-            pnl_snapshot_id = f"PNL-{analytics.portfolio_id}-{suffix}"
+    def save_pnl(
+        self,
+        pnl,
+        *,
+        market_data_as_of_ts: datetime,
+    ) -> str:
+        suffix = _snapshot_suffix(pnl.valuation_ts)
+        snapshot_id = f"PNL-{pnl.portfolio_id}-{suffix}"
+        with self._connect() as connection:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO pnl (
@@ -218,18 +258,28 @@ class SqliteHelixStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    pnl_snapshot_id,
-                    analytics.pnl.portfolio_id,
-                    analytics.pnl.total_pnl,
-                    analytics.pnl.realized_pnl,
-                    analytics.pnl.unrealized_pnl,
-                    _isoformat_utc(analytics.pnl.valuation_ts),
+                    snapshot_id,
+                    pnl.portfolio_id,
+                    pnl.total_pnl,
+                    pnl.realized_pnl,
+                    pnl.unrealized_pnl,
+                    _isoformat_utc(pnl.valuation_ts),
                     _isoformat_utc(market_data_as_of_ts),
-                    _isoformat_utc(valuation_ts),
+                    _isoformat_utc(pnl.valuation_ts),
                 ),
             )
+            connection.commit()
+        return snapshot_id
 
-            risk_snapshot_id = f"RISK-{analytics.portfolio_id}-{suffix}"
+    def save_risk(
+        self,
+        risk,
+        *,
+        market_data_as_of_ts: datetime,
+    ) -> str:
+        suffix = _snapshot_suffix(risk.valuation_ts)
+        snapshot_id = f"RISK-{risk.portfolio_id}-{suffix}"
+        with self._connect() as connection:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO risk (
@@ -239,26 +289,18 @@ class SqliteHelixStore:
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
-                    risk_snapshot_id,
-                    analytics.risk.portfolio_id,
-                    analytics.risk.delta,
-                    analytics.risk.gamma,
-                    analytics.risk.var_95,
-                    _isoformat_utc(analytics.risk.valuation_ts),
+                    snapshot_id,
+                    risk.portfolio_id,
+                    risk.delta,
+                    risk.gamma,
+                    risk.var_95,
+                    _isoformat_utc(risk.valuation_ts),
                     _isoformat_utc(market_data_as_of_ts),
-                    _isoformat_utc(valuation_ts),
+                    _isoformat_utc(risk.valuation_ts),
                 ),
             )
             connection.commit()
-
-        return PersistedAnalytics(
-            portfolio_id=analytics.portfolio_id,
-            position_snapshot_ids=position_snapshot_ids,
-            pnl_snapshot_id=pnl_snapshot_id,
-            risk_snapshot_id=risk_snapshot_id,
-            valuation_ts=valuation_ts,
-            market_data_as_of_ts=market_data_as_of_ts,
-        )
+        return snapshot_id
 
     def update_trade_status(
         self,
