@@ -31,4 +31,4 @@ echo "[brokers_stop] Stopping RabbitMQ..."
 brew services stop rabbitmq || true
 
 echo "[brokers_stop] Broker services:"
-brew services list | rg 'rabbitmq|kafka' || true
+brew services list | grep -E 'rabbitmq|kafka' || true

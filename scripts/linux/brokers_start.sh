@@ -57,7 +57,7 @@ else
 fi
 
 echo "[brokers_start] Broker services:"
-brew services list | rg 'rabbitmq|kafka' || true
+brew services list | grep -E 'rabbitmq|kafka' || true
 
 echo "[brokers_start] RabbitMQ management UI: ${HELIX_RABBITMQ_MANAGEMENT_URL}"
 echo "[brokers_start] Kafka bootstrap servers: ${HELIX_KAFKA_BOOTSTRAP_SERVERS}"

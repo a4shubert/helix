@@ -587,7 +587,6 @@ Below is the recommended prototype relational model for `helix-store`.
 | desk            | TEXT nullable | Trading desk                               |
 | status          | TEXT          | pending/accepted/rejected/processed/failed |
 | version         | INTEGER       | For amendments                             |
-| parent_trade_id | TEXT nullable | Original trade reference                   |
 | created_at      | DATETIME      | Insert time                                |
 | updated_at      | DATETIME      | Last update time                           |
 

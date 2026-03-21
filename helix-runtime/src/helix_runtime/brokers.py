@@ -4,10 +4,18 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from datetime import UTC, datetime
+from uuid import uuid4
 
 from .config import KafkaConfig, RabbitMqConfig
 from .events import RabbitMqTask, build_portfolio_update_payload, kafka_topic_for_update
 from .models import PortfolioUpdateEvent
+
+
+def _isoformat_utc(value: datetime) -> str:
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    return value.astimezone(UTC).isoformat().replace("+00:00", "Z")
 
 
 class KafkaUpdatePublisher:
@@ -18,6 +26,14 @@ class KafkaUpdatePublisher:
         self._producer = None
 
     def publish(self, topic: str, payload: dict[str, object]) -> None:
+        if {"portfolio_id", "snapshot_id", "occurred_at"} <= payload.keys():
+            payload = {
+                "eventId": f"EVT-{uuid4().hex[:12].upper()}",
+                "eventType": topic,
+                "portfolioId": payload["portfolio_id"],
+                "snapshotId": payload["snapshot_id"],
+                "timestamp": _isoformat_utc(datetime.fromisoformat(str(payload["occurred_at"]))),
+            }
         producer = self._get_producer()
         producer.send(topic, value=payload)
         producer.flush()

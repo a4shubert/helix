@@ -33,9 +33,9 @@ def main() -> None:
               trade_id, portfolio_id, position_id, instrument_id, instrument_name,
               asset_class, currency, side, quantity, price, contract_multiplier, notional, trade_timestamp,
               settlement_date, strategy, book, desk, status, version,
-              parent_trade_id, created_at, updated_at
+              created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -58,7 +58,6 @@ def main() -> None:
                     trade["desk"],
                     trade["status"],
                     trade["version"],
-                    trade["parent_trade_id"],
                     trade["created_at"],
                     trade["updated_at"],
                 )

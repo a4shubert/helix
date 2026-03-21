@@ -1,5 +1,6 @@
 using HelixRest.Data;
 using HelixRest.Data.Entities;
+using HelixRest.Messaging;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 var builder = WebApplication.CreateBuilder(args);
@@ -26,7 +27,33 @@ if (string.IsNullOrWhiteSpace(urlsToUse))
 builder.WebHost.UseUrls(urlsToUse);
 Console.WriteLine($"[HelixRest] Binding URLs: {urlsToUse}");
 
+var helixWebUrl = Environment.GetEnvironmentVariable("HELIX_WEB_URL") ?? "http://localhost:3001";
+var allowedWebOrigins = new[]
+{
+    helixWebUrl,
+    "http://localhost:3000",
+    "http://localhost:3001",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:3001"
+}.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("HelixWeb", policy =>
+    {
+        policy.WithOrigins(allowedWebOrigins)
+            .AllowAnyHeader()
+            .AllowAnyMethod();
+    });
+});
+
 builder.Services.AddDbContext<HelixContext>(options => options.UseSqlite(connString));
+builder.Services.Configure<HelixKafkaOptions>(options =>
+{
+    options.BootstrapServers = Environment.GetEnvironmentVariable("HELIX_KAFKA_BOOTSTRAP_SERVERS") ?? string.Empty;
+});
+builder.Services.AddSingleton<UpdateStreamBroadcaster>();
+builder.Services.AddSingleton<ITradeCreatedPublisher, KafkaTradeCreatedPublisher>();
+builder.Services.AddHostedService<KafkaPortfolioUpdateConsumerService>();
 
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore", LogLevel.Warning);
 builder.Logging.AddFilter("Microsoft.EntityFrameworkCore.Database.Command", LogLevel.Warning);
@@ -36,6 +63,8 @@ builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+app.UseCors("HelixWeb");
 
 app.Use(async (context, next) =>
 {
@@ -89,6 +118,29 @@ app.MapGet("/health", async (HelixContext db) =>
         service = "helix-rest",
         database = canConnect ? "success" : "unreachable",
     });
+}).WithTags("system");
+
+app.MapGet("/api/events", async (
+    HttpContext context,
+    string? portfolioId,
+    UpdateStreamBroadcaster broadcaster,
+    CancellationToken cancellationToken) =>
+{
+    context.Response.Headers.Append("Cache-Control", "no-cache");
+    context.Response.Headers.Append("Content-Type", "text/event-stream");
+    context.Response.Headers.Append("X-Accel-Buffering", "no");
+
+    await using var subscription = broadcaster.Subscribe(portfolioId);
+    await context.Response.WriteAsync("event: connected\n", cancellationToken);
+    await context.Response.WriteAsync("data: {\"status\":\"ok\"}\n\n", cancellationToken);
+    await context.Response.Body.FlushAsync(cancellationToken);
+
+    await foreach (var update in subscription.Reader.ReadAllAsync(cancellationToken))
+    {
+        await context.Response.WriteAsync($"event: {update.EventType}\n", cancellationToken);
+        await context.Response.WriteAsync($"data: {update.ToJson()}\n\n", cancellationToken);
+        await context.Response.Body.FlushAsync(cancellationToken);
+    }
 }).WithTags("system");
 
 app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixContext db) =>
@@ -198,7 +250,6 @@ app.MapGet("/api/trades", async (
             desk = x.Desk,
             status = x.Status,
             version = x.Version,
-            parentTradeId = x.ParentTradeId,
             createdAt = x.CreatedAt,
             updatedAt = x.UpdatedAt
         })
@@ -273,7 +324,11 @@ app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext 
         });
 }).WithTags("analytics");
 
-app.MapPost("/api/trades", async (CreateTradeRequest request, HelixContext db) =>
+app.MapPost("/api/trades", async (
+    CreateTradeRequest request,
+    HelixContext db,
+    ITradeCreatedPublisher publisher,
+    CancellationToken cancellationToken) =>
 {
     var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == request.PortfolioId);
     if (!portfolioExists)
@@ -282,7 +337,9 @@ app.MapPost("/api/trades", async (CreateTradeRequest request, HelixContext db) =
     }
 
     var submittedAt = DateTime.UtcNow;
-    var tradeId = $"TRD-{request.PortfolioId}-{submittedAt:yyyyMMddHHmmss}";
+    var tradeId = string.IsNullOrWhiteSpace(request.TradeId)
+        ? $"TRD-{request.PortfolioId}-{submittedAt:yyyyMMddHHmmssfff}"
+        : request.TradeId;
     var contractMultiplier = request.ContractMultiplier ?? 1.0;
     var notional = request.Quantity * request.Price * contractMultiplier;
 
@@ -308,20 +365,20 @@ app.MapPost("/api/trades", async (CreateTradeRequest request, HelixContext db) =
         Book = request.Book,
         Desk = request.Desk,
         Status = "accepted",
-        Version = 1,
-        ParentTradeId = null,
+        Version = request.Version ?? 1,
         CreatedAt = submittedAt,
         UpdatedAt = submittedAt
     };
 
     db.Trades.Add(entity);
-    await db.SaveChangesAsync();
-
-    Console.WriteLine($"[HelixRest] trade.created published for {tradeId} (stub)");
+    await db.SaveChangesAsync(cancellationToken);
+    await publisher.PublishAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
 
     return Results.Ok(new
     {
         tradeId,
+        portfolioId = request.PortfolioId,
+        positionId = entity.PositionId,
         status = "accepted",
         submittedAt
     });
@@ -332,6 +389,7 @@ app.Run();
 public partial class Program { }
 
 public sealed record CreateTradeRequest(
+    string? TradeId,
     string PortfolioId,
     string? PositionId,
     string InstrumentId,
@@ -346,5 +404,6 @@ public sealed record CreateTradeRequest(
     DateOnly? SettlementDate,
     string? Strategy,
     string? Book,
-    string? Desk
+    string? Desk,
+    int? Version
 );

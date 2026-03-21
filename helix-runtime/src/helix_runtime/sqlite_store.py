@@ -309,5 +309,4 @@ class SqliteHelixStore:
             desk=row["desk"],
             status=str(row["status"]),
             version=int(row["version"]),
-            parent_trade_id=row["parent_trade_id"],
         )

@@ -27,7 +27,6 @@ CREATE TABLE IF NOT EXISTS trades (
   desk TEXT,
   status TEXT NOT NULL,
   version INTEGER NOT NULL,
-  parent_trade_id TEXT,
   created_at DATETIME NOT NULL,
   updated_at DATETIME NOT NULL,
   FOREIGN KEY (portfolio_id) REFERENCES portfolio(portfolio_id)

@@ -45,3 +45,14 @@ class TradeProcessingResult:
     portfolio_id: str
     persisted: PersistedAnalytics
     published_events: list[PortfolioUpdateEvent]
+
+
+@dataclass(frozen=True)
+class TaskProcessingResult:
+    """Result returned by the runtime processor for RabbitMQ task handling."""
+
+    task_id: str
+    task_type: str
+    portfolio_id: str
+    persisted: PersistedAnalytics
+    published_events: list[PortfolioUpdateEvent]

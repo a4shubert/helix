@@ -26,7 +26,6 @@ class Trade:
     desk: str | None
     status: str
     version: int
-    parent_trade_id: str | None = None
 
 
 @dataclass(frozen=True)

@@ -13,8 +13,35 @@ import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { TradeFormModal } from "@/components/dashboard/TradeFormModal";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
+import type { CreateTradeRequest } from "@/lib/api/helix";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
 import type { PortfolioTrade } from "@/lib/mock/trades";
+
+function normalizeTrade(trade: PortfolioTrade | Record<string, unknown>): PortfolioTrade {
+  return {
+    trade_id: String(trade.trade_id ?? trade.tradeId ?? ""),
+    portfolio_id: String(trade.portfolio_id ?? trade.portfolioId ?? ""),
+    position_id: String(trade.position_id ?? trade.positionId ?? ""),
+    instrument_id: String(trade.instrument_id ?? trade.instrumentId ?? ""),
+    instrument_name: String(trade.instrument_name ?? trade.instrumentName ?? ""),
+    asset_class: String(trade.asset_class ?? trade.assetClass ?? ""),
+    currency: String(trade.currency ?? ""),
+    side: String(trade.side ?? ""),
+    quantity: Number(trade.quantity ?? 0),
+    price: Number(trade.price ?? 0),
+    contract_multiplier: Number(trade.contract_multiplier ?? trade.contractMultiplier ?? 1),
+    notional: Number(trade.notional ?? 0),
+    trade_timestamp: String(trade.trade_timestamp ?? trade.tradeTimestamp ?? ""),
+    settlement_date: String(trade.settlement_date ?? trade.settlementDate ?? ""),
+    strategy: String(trade.strategy ?? ""),
+    book: String(trade.book ?? ""),
+    desk: String(trade.desk ?? ""),
+    status: String(trade.status ?? ""),
+    version: Number(trade.version ?? 1),
+    created_at: String(trade.created_at ?? trade.createdAt ?? ""),
+    updated_at: String(trade.updated_at ?? trade.updatedAt ?? ""),
+  };
+}
 
 const formatIntegerCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
   typeof params.value === "number" ? formatInteger(params.value) : (params.value ?? "");
@@ -63,7 +90,6 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     type: "numericColumn",
     valueFormatter: formatIntegerCell,
   },
-  { field: "parent_trade_id", headerName: "Parent Trade ID", minWidth: 160 },
   { field: "created_at", headerName: "Created At", minWidth: 210 },
   { field: "updated_at", headerName: "Updated At", minWidth: 210 },
 ];
@@ -123,7 +149,7 @@ export function PortfolioTradesTable({
   trades: PortfolioTrade[];
   collapsed: boolean;
   onToggle: () => void;
-  onSaveTrade: (trade: PortfolioTrade) => void;
+  onSaveTrade: (trade: CreateTradeRequest) => Promise<void>;
 }) {
   const gridApiRef = useRef<GridApi<PortfolioTrade> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -132,12 +158,16 @@ export function PortfolioTradesTable({
   const [selectedTrade, setSelectedTrade] = useState<PortfolioTrade | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formSeed, setFormSeed] = useState(0);
-  const totalRows = trades.length;
+  const normalizedTrades = useMemo(
+    () => trades.map((trade) => normalizeTrade(trade as PortfolioTrade | Record<string, unknown>)),
+    [trades],
+  );
+  const totalRows = normalizedTrades.length;
   const lastPage = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
   const currentRows = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return trades.slice(start, start + PAGE_SIZE);
-  }, [currentPage, trades]);
+    return normalizedTrades.slice(start, start + PAGE_SIZE);
+  }, [currentPage, normalizedTrades]);
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
 
@@ -426,10 +456,11 @@ export function PortfolioTradesTable({
         portfolioId={portfolioId}
         trade={selectedTrade}
         onClose={() => setIsFormOpen(false)}
-        onSave={(trade) => {
-          onSaveTrade(trade);
+        onSave={async (trade) => {
+          await onSaveTrade(trade);
           setIsFormOpen(false);
-          setSelectedTrade(trade);
+          setSelectedTrade(null);
+          setSelectedCount(0);
         }}
       />
     </DashboardCardShell>

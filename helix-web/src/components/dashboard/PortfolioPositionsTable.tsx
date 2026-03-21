@@ -13,7 +13,36 @@ import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
-import type { PortfolioResponse } from "@/lib/mock/portfolio";
+import type { PortfolioPosition, PortfolioResponse } from "@/lib/mock/portfolio";
+
+function normalizePosition(
+  portfolioId: string,
+  position: PortfolioPosition | Record<string, unknown>,
+): PortfolioPosition {
+  return {
+    portfolioId: String(position.portfolioId ?? portfolioId),
+    positionId: String(position.positionId ?? position.position_id ?? ""),
+    instrumentId: String(position.instrumentId ?? position.instrument_id ?? ""),
+    instrumentName: String(position.instrumentName ?? position.instrument_name ?? ""),
+    assetClass: String(position.assetClass ?? position.asset_class ?? ""),
+    currency: String(position.currency ?? ""),
+    quantity: Number(position.quantity ?? 0),
+    direction: String(position.direction ?? "LONG") as "LONG" | "SHORT",
+    averageCost: Number(position.averageCost ?? position.average_cost ?? 0),
+    contractMultiplier: Number(position.contractMultiplier ?? position.contract_multiplier ?? 1),
+    tradeDate: String(position.tradeDate ?? position.trade_date ?? ""),
+    lastUpdateTs: String(position.lastUpdateTs ?? position.last_update_ts ?? ""),
+    marketPrice: Number(position.marketPrice ?? position.market_price ?? 0),
+    marketDataTs: String(position.marketDataTs ?? position.market_data_ts ?? ""),
+    fxRate: Number(position.fxRate ?? position.fx_rate ?? 0),
+    notional: Number(position.notional ?? 0),
+    marketValue: Number(position.marketValue ?? position.market_value ?? 0),
+    sector: String(position.sector ?? ""),
+    region: String(position.region ?? ""),
+    strategy: String(position.strategy ?? ""),
+    desk: String(position.desk ?? ""),
+  };
+}
 
 const formatIntegerCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
   typeof params.value === "number" ? formatInteger(params.value) : (params.value ?? "");
@@ -128,12 +157,19 @@ export function PortfolioPositionsTable({
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCount, setSelectedCount] = useState(0);
   const [hasFilters, setHasFilters] = useState(false);
-  const totalRows = portfolio.positions.length;
+  const normalizedPositions = useMemo(
+    () =>
+      portfolio.positions.map((position) =>
+        normalizePosition(portfolio.portfolioId, position as PortfolioPosition | Record<string, unknown>),
+      ),
+    [portfolio.portfolioId, portfolio.positions],
+  );
+  const totalRows = normalizedPositions.length;
   const lastPage = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
   const currentRows = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return portfolio.positions.slice(start, start + PAGE_SIZE);
-  }, [currentPage, portfolio.positions]);
+    return normalizedPositions.slice(start, start + PAGE_SIZE);
+  }, [currentPage, normalizedPositions]);
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
 

@@ -48,7 +48,6 @@ public class HelixContext : DbContext
             entity.Property(x => x.Desk).HasColumnName("desk");
             entity.Property(x => x.Status).HasColumnName("status");
             entity.Property(x => x.Version).HasColumnName("version");
-            entity.Property(x => x.ParentTradeId).HasColumnName("parent_trade_id");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
             entity.Property(x => x.UpdatedAt).HasColumnName("updated_at");
             entity.HasOne(x => x.Portfolio)

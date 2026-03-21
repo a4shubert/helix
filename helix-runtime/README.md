@@ -81,6 +81,46 @@ PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli process
   --occurred-at 2026-03-21T12:00:00Z
 ```
 
+## Runtime Worker Modes
+
+`helix-runtime` can now run as an actual long-lived worker:
+
+- Kafka consumer for `trade.created`
+- RabbitMQ worker for operational task queues
+
+Run the Kafka consumer:
+
+```bash
+PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli run-kafka-trade-consumer \
+  --db-path helix-store/helix.db
+```
+
+Run the RabbitMQ worker:
+
+```bash
+PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli run-rabbitmq-worker \
+  --db-path helix-store/helix.db
+```
+
+Run the combined runtime service:
+
+```bash
+PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli run-service \
+  --db-path helix-store/helix.db
+```
+
+For controlled local testing, both support bounded runs:
+
+```bash
+PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli run-kafka-trade-consumer \
+  --db-path helix-store/helix.db \
+  --max-messages 1
+
+PYTHONPATH=helix-core/src:helix-runtime/src python3 -m helix_runtime.cli run-rabbitmq-worker \
+  --db-path helix-store/helix.db \
+  --max-tasks 1
+```
+
 ## Next Broker Adapters
 
 The next concrete integration points should be:

@@ -372,13 +372,15 @@ export function HelixAgTable<T extends Record<string, unknown>>({
     () => ({
       theme: "legacy",
       animateRows: true,
-      rowSelection: "single",
+      rowSelection: {
+        mode: "singleRow",
+        enableClickSelection: false,
+      },
       suppressCellFocus: false,
       pagination: false,
       suppressMovableColumns: false,
       alwaysShowHorizontalScroll: true,
       suppressHorizontalScroll: false,
-      suppressRowClickSelection: true,
       enableCellTextSelection: true,
       ensureDomOrder: true,
       ...(gridOptions ?? {}),

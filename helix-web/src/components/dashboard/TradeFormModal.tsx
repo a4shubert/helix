@@ -1,7 +1,8 @@
 "use client";
 
 import type { FormEvent } from "react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import type { CreateTradeRequest } from "@/lib/api/helix";
 import { formatDecimal } from "@/lib/format/number";
 import type { PortfolioTrade } from "@/lib/mock/trades";
 
@@ -34,7 +35,7 @@ function createGeneratedPositionId(portfolioId: string): string {
 
 function toFormValues(portfolioId: string, trade?: PortfolioTrade | null): TradeFormValues {
   return {
-    trade_id: trade?.trade_id ?? createGeneratedTradeId(portfolioId),
+    trade_id: trade ? createGeneratedTradeId(portfolioId) : createGeneratedTradeId(portfolioId),
     position_id: trade?.position_id ?? createGeneratedPositionId(portfolioId),
     instrument_id: trade?.instrument_id ?? "",
     instrument_name: trade?.instrument_name ?? "",
@@ -49,7 +50,7 @@ function toFormValues(portfolioId: string, trade?: PortfolioTrade | null): Trade
     strategy: trade?.strategy ?? "",
     book: trade?.book ?? "",
     desk: trade?.desk ?? "",
-    status: trade?.status ?? "processed",
+    status: "accepted",
   };
 }
 
@@ -64,9 +65,18 @@ export function TradeFormModal({
   portfolioId: string;
   trade?: PortfolioTrade | null;
   onClose: () => void;
-  onSave: (trade: PortfolioTrade) => void;
+  onSave: (trade: CreateTradeRequest) => Promise<void>;
 }) {
   const [form, setForm] = useState<TradeFormValues>(() => toFormValues(portfolioId, trade));
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    setForm(toFormValues(portfolioId, trade));
+    setIsSaving(false);
+  }, [open, portfolioId, trade]);
 
   const computedNotional = useMemo(() => {
     const quantity = Number(form.quantity) || 0;
@@ -83,10 +93,9 @@ export function TradeFormModal({
     setForm((current) => ({ ...current, [field]: value }));
   }
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
 
-    const now = "2026-03-21T09:30:00Z";
     const quantity = Number(form.quantity) || 0;
     const price = Number(form.price) || 0;
     const contractMultiplier = Number(form.contract_multiplier) || 1;
@@ -94,30 +103,30 @@ export function TradeFormModal({
       ? form.position_id.trim()
       : `${portfolioId}-${form.position_id.trim()}`;
 
-    onSave({
-      trade_id: form.trade_id.trim(),
-      portfolio_id: portfolioId,
-      position_id: normalizedPositionId,
-      instrument_id: form.instrument_id.trim(),
-      instrument_name: form.instrument_name.trim(),
-      asset_class: form.asset_class.trim(),
-      currency: form.currency.trim().toUpperCase(),
-      side: form.side,
-      quantity,
-      price,
-      contract_multiplier: contractMultiplier,
-      notional: quantity * price * contractMultiplier,
-      trade_timestamp: form.trade_timestamp,
-      settlement_date: form.settlement_date,
-      strategy: form.strategy.trim(),
-      book: form.book.trim(),
-      desk: form.desk.trim(),
-      status: form.status.trim(),
-      version: trade ? trade.version + 1 : 1,
-      parent_trade_id: trade?.parent_trade_id ?? null,
-      created_at: trade?.created_at ?? now,
-      updated_at: now,
-    });
+    setIsSaving(true);
+    try {
+      await onSave({
+        tradeId: form.trade_id.trim(),
+        portfolioId,
+        positionId: normalizedPositionId,
+        instrumentId: form.instrument_id.trim(),
+        instrumentName: form.instrument_name.trim(),
+        assetClass: form.asset_class.trim(),
+        currency: form.currency.trim().toUpperCase(),
+        side: form.side,
+        quantity,
+        price,
+        contractMultiplier,
+        tradeTimestamp: form.trade_timestamp,
+        settlementDate: form.settlement_date,
+        strategy: form.strategy.trim(),
+        book: form.book.trim(),
+        desk: form.desk.trim(),
+        version: trade ? trade.version + 1 : 1,
+      });
+    } finally {
+      setIsSaving(false);
+    }
   }
 
   return (
@@ -149,6 +158,7 @@ export function TradeFormModal({
                 onChange={(event) => updateField("trade_id", event.target.value)}
                 className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
                 required
+                readOnly
               />
             </label>
             <label className="space-y-2">
@@ -158,6 +168,7 @@ export function TradeFormModal({
                 onChange={(event) => updateField("position_id", event.target.value)}
                 className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
                 required
+                readOnly={!trade}
               />
             </label>
             <label className="space-y-2">
@@ -316,15 +327,17 @@ export function TradeFormModal({
             <button
               type="button"
               onClick={onClose}
+              disabled={isSaving}
               className="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-white hover:border-[color:var(--color-accent)]"
             >
               Cancel
             </button>
             <button
               type="submit"
+              disabled={isSaving}
               className="rounded-lg border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-4 py-2 text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/20"
             >
-              Save
+              {isSaving ? "Saving..." : "Save"}
             </button>
           </div>
         </form>

@@ -9,15 +9,14 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Sequence
 
-from . import (
-    InMemoryEventPublisher,
-    LoggingEventPublisher,
-    SqliteHelixStore,
-    TradeCreatedEvent,
-    TradeCreatedProcessor,
-    build_trade_created_payload,
-    parse_trade_created_payload,
-)
+from .consumers import KafkaTradeCreatedConsumer, RabbitMqTaskWorker
+from .config import load_kafka_config_from_env, load_rabbitmq_config_from_env
+from .publisher import InMemoryEventPublisher, LoggingEventPublisher
+from .service import RuntimeService, RuntimeServiceConfig
+from .sqlite_store import SqliteHelixStore
+from .models import TradeCreatedEvent
+from .processor import TradeCreatedProcessor
+from .events import build_trade_created_payload, parse_trade_created_payload
 
 
 def _parse_datetime(raw: str) -> datetime:
@@ -87,6 +86,55 @@ def _build_parser() -> argparse.ArgumentParser:
         "--occurred-at",
         default=None,
         help="Event timestamp in ISO 8601 format. Defaults to current UTC time.",
+    )
+
+    kafka_consumer = subparsers.add_parser(
+        "run-kafka-trade-consumer",
+        help="Run the long-lived Kafka consumer for trade.created.",
+    )
+    kafka_consumer.add_argument(
+        "--db-path",
+        default=os.environ.get("HELIX_DB_PATH", "helix-store/helix.db"),
+        help="Path to the Helix SQLite database.",
+    )
+    kafka_consumer.add_argument(
+        "--max-messages",
+        type=int,
+        default=None,
+        help="Optional cap on messages to process before exiting.",
+    )
+
+    rabbit_worker = subparsers.add_parser(
+        "run-rabbitmq-worker",
+        help="Run the long-lived RabbitMQ task worker.",
+    )
+    rabbit_worker.add_argument(
+        "--db-path",
+        default=os.environ.get("HELIX_DB_PATH", "helix-store/helix.db"),
+        help="Path to the Helix SQLite database.",
+    )
+    rabbit_worker.add_argument(
+        "--queue",
+        action="append",
+        dest="queues",
+        default=None,
+        help="Optional queue name to listen on. May be specified multiple times.",
+    )
+    rabbit_worker.add_argument(
+        "--max-tasks",
+        type=int,
+        default=None,
+        help="Optional cap on tasks to process before exiting.",
+    )
+
+    service = subparsers.add_parser(
+        "run-service",
+        help="Run the combined helix-runtime service with Kafka and RabbitMQ workers.",
+    )
+    service.add_argument(
+        "--db-path",
+        default=os.environ.get("HELIX_DB_PATH", "helix-store/helix.db"),
+        help="Path to the Helix SQLite database.",
     )
 
     return parser
@@ -165,6 +213,55 @@ def _build_trade_created_message(args: argparse.Namespace) -> int:
     return 0
 
 
+def _run_kafka_trade_consumer(args: argparse.Namespace) -> int:
+    db_path = str(Path(args.db_path).resolve())
+    config = load_kafka_config_from_env()
+    consumer = KafkaTradeCreatedConsumer(db_path, config)
+    processed = consumer.run(max_messages=args.max_messages)
+    print(
+        json.dumps(
+            {
+                "processed_messages": processed,
+                "topic": config.trade_created_topic,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _run_rabbitmq_worker(args: argparse.Namespace) -> int:
+    db_path = str(Path(args.db_path).resolve())
+    config = load_rabbitmq_config_from_env()
+    kafka_config = load_kafka_config_from_env()
+    worker = RabbitMqTaskWorker(db_path, config, kafka_config)
+    queue_names = tuple(args.queues) if args.queues else None
+    processed = worker.run(queue_names=queue_names, max_tasks=args.max_tasks)
+    print(
+        json.dumps(
+            {
+                "processed_tasks": processed,
+                "queues": list(queue_names or ()),
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
+def _run_service(args: argparse.Namespace) -> int:
+    db_path = str(Path(args.db_path).resolve())
+    service = RuntimeService(
+        RuntimeServiceConfig(
+            db_path=db_path,
+            kafka=load_kafka_config_from_env(),
+            rabbitmq=load_rabbitmq_config_from_env(),
+        )
+    )
+    service.run()
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -175,6 +272,12 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _process_trade_created_message(args)
     if args.command == "build-trade-created-message":
         return _build_trade_created_message(args)
+    if args.command == "run-kafka-trade-consumer":
+        return _run_kafka_trade_consumer(args)
+    if args.command == "run-rabbitmq-worker":
+        return _run_rabbitmq_worker(args)
+    if args.command == "run-service":
+        return _run_service(args)
 
     parser.error(f"Unsupported command: {args.command}")
     return 2
