@@ -69,7 +69,7 @@ def main() -> None:
             "position_snapshot",
             "pnl_snapshot",
             "risk_snapshot",
-            "trade",
+            "trades",
             "scenario_position",
             "scenario_result",
             "scenario_run",

@@ -5,11 +5,14 @@ import { PortfolioPnLCard } from "@/components/dashboard/PortfolioPnLCard";
 import { PortfolioPositionsTable } from "@/components/dashboard/PortfolioPositionsTable";
 import { PortfolioRiskCard } from "@/components/dashboard/PortfolioRiskCard";
 import { PortfolioSidebar } from "@/components/dashboard/PortfolioSidebar";
+import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTable";
 import { mockPortfolioDashboards, type MockPortfolioKey } from "@/lib/mock/portfolio";
+import { mockTrades } from "@/lib/mock/trades";
 
 export function PortfolioDashboard() {
   const [selectedPortfolio, setSelectedPortfolio] = useState<MockPortfolioKey>("PF-001");
   const { portfolio, pnlMetrics, riskMetrics } = mockPortfolioDashboards[selectedPortfolio];
+  const portfolioTrades = mockTrades.filter((trade) => trade.portfolio_id === selectedPortfolio);
   const portfolioItems = [
     {
       key: "PF-001",
@@ -40,6 +43,11 @@ export function PortfolioDashboard() {
           <PortfolioPnLCard metrics={pnlMetrics} />
           <PortfolioRiskCard metrics={riskMetrics} />
         </div>
+        <PortfolioTradesTable
+          portfolioId={selectedPortfolio}
+          asOf={portfolio.asOf}
+          trades={portfolioTrades}
+        />
         <PortfolioPositionsTable portfolio={portfolio} />
       </div>
     </section>

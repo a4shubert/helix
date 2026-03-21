@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS portfolio (
   created_at DATETIME NOT NULL
 );
 
-CREATE TABLE IF NOT EXISTS trade (
+CREATE TABLE IF NOT EXISTS trades (
   trade_id TEXT PRIMARY KEY,
   portfolio_id TEXT NOT NULL,
   position_id TEXT,

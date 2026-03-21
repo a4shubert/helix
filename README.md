@@ -564,7 +564,7 @@ Below is the recommended prototype relational model for `helix-store`.
 | status       | TEXT     | active/inactive      |
 | created_at   | DATETIME | Creation timestamp   |
 
-#### `trade`
+#### `trades`
 
 | Column          | Type          | Notes                                      |
 | --------------- | ------------- | ------------------------------------------ |

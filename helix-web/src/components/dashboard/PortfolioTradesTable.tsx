@@ -12,7 +12,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
-import type { PortfolioResponse } from "@/lib/mock/portfolio";
+import type { PortfolioTrade } from "@/lib/mock/trades";
 
 const formatIntegerCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
   typeof params.value === "number" ? formatInteger(params.value) : (params.value ?? "");
@@ -20,71 +20,70 @@ const formatIntegerCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
 const formatDecimalCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
   typeof params.value === "number" ? formatDecimal(params.value) : (params.value ?? "");
 
-const columnDefs: ColDef[] = [
-  { field: "positionId", headerName: "Position ID", minWidth: 130 },
-  { field: "instrumentId", headerName: "Instrument ID", minWidth: 130 },
-  { field: "instrumentName", headerName: "Instrument Name", minWidth: 200 },
-  { field: "assetClass", headerName: "Asset Class", minWidth: 130 },
+const columnDefs: ColDef<PortfolioTrade>[] = [
+  { field: "trade_id", headerName: "Trade ID", minWidth: 150 },
+  { field: "position_id", headerName: "Position ID", minWidth: 130 },
+  { field: "instrument_id", headerName: "Instrument ID", minWidth: 130 },
+  { field: "instrument_name", headerName: "Instrument Name", minWidth: 220 },
+  { field: "asset_class", headerName: "Asset Class", minWidth: 130 },
   { field: "currency", headerName: "Currency", minWidth: 110 },
-  { field: "direction", headerName: "Direction", minWidth: 130 },
+  { field: "side", headerName: "Side", minWidth: 100 },
   {
     field: "quantity",
     headerName: "Quantity",
-    minWidth: 130,
+    minWidth: 140,
     type: "numericColumn",
     valueFormatter: formatIntegerCell,
+  },
+  {
+    field: "price",
+    headerName: "Price",
+    minWidth: 140,
+    type: "numericColumn",
+    valueFormatter: formatDecimalCell,
   },
   {
     field: "notional",
     headerName: "Notional",
     minWidth: 160,
     type: "numericColumn",
+    valueFormatter: formatDecimalCell,
+  },
+  { field: "trade_date", headerName: "Trade Date", minWidth: 135 },
+  { field: "settlement_date", headerName: "Settlement Date", minWidth: 155 },
+  { field: "strategy", headerName: "Strategy", minWidth: 160 },
+  { field: "book", headerName: "Book", minWidth: 160 },
+  { field: "desk", headerName: "Desk", minWidth: 140 },
+  { field: "status", headerName: "Status", minWidth: 120 },
+  {
+    field: "version",
+    headerName: "Version",
+    minWidth: 110,
+    type: "numericColumn",
     valueFormatter: formatIntegerCell,
   },
-  {
-    field: "averageCost",
-    headerName: "Average Cost",
-    minWidth: 150,
-    type: "numericColumn",
-    valueFormatter: formatDecimalCell,
-  },
-  { field: "tradeDate", headerName: "Trade Date", minWidth: 135 },
-  { field: "lastUpdateTs", headerName: "Last Update Timestamp", minWidth: 210 },
-  {
-    field: "marketPrice",
-    headerName: "Market Price",
-    minWidth: 140,
-    type: "numericColumn",
-    valueFormatter: formatDecimalCell,
-  },
-  { field: "marketDataTs", headerName: "Market Data Timestamp", minWidth: 210 },
-  {
-    field: "fxRate",
-    headerName: "FX Rate",
-    minWidth: 120,
-    type: "numericColumn",
-    valueFormatter: formatDecimalCell,
-  },
-  { field: "sector", headerName: "Sector", minWidth: 140 },
-  { field: "region", headerName: "Region", minWidth: 120 },
-  { field: "strategy", headerName: "Strategy / Book", minWidth: 170 },
-  { field: "desk", headerName: "Desk", minWidth: 130 },
+  { field: "parent_trade_id", headerName: "Parent Trade ID", minWidth: 160 },
+  { field: "created_at", headerName: "Created At", minWidth: 210 },
+  { field: "updated_at", headerName: "Updated At", minWidth: 210 },
 ];
 
-const defaultColDef: ColDef = {
+const defaultColDef: ColDef<PortfolioTrade> = {
   sortable: true,
   filter: true,
   resizable: true,
   valueFormatter: (params) => {
     if (typeof params.value !== "number") {
       if (typeof params.value === "string") {
-        if (params.column.getColId() === "tradeDate") {
+        if (
+          params.column.getColId() === "trade_date" ||
+          params.column.getColId() === "settlement_date"
+        ) {
           return new Date(`${params.value}T00:00:00Z`).toLocaleDateString("en-GB");
         }
 
         if (
-          params.column.getColId() === "lastUpdateTs" ||
-          params.column.getColId() === "marketDataTs"
+          params.column.getColId() === "created_at" ||
+          params.column.getColId() === "updated_at"
         ) {
           return new Date(params.value).toLocaleString("en-GB", { hour12: false });
         }
@@ -93,16 +92,14 @@ const defaultColDef: ColDef = {
       return params.value ?? "";
     }
 
-    const isPriceColumn =
-      params.column.getColId() === "averageCost" ||
-      params.column.getColId() === "marketPrice" ||
-      params.column.getColId() === "fxRate";
+    const isDecimalColumn =
+      params.column.getColId() === "price" || params.column.getColId() === "notional";
 
-    return isPriceColumn ? formatDecimal(params.value) : formatInteger(params.value);
+    return isDecimalColumn ? formatDecimal(params.value) : formatInteger(params.value);
   },
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 20;
 
 const helpItems = [
   "Single click focuses a cell; copy with Cmd+C (macOS) or Ctrl+C (Windows/Linux).",
@@ -111,24 +108,28 @@ const helpItems = [
   "Use the X button to clear any selected rows (de-select all).",
   "Use the filter-reset button to clear all column filters.",
   "Use Fit Columns to size by header and Fit Data to auto-size to visible content.",
-  "Pagination buttons move through the mock positions dataset page by page; filters affect only the current page in this mock setup.",
+  "Pagination buttons move through the static trades dataset page by page; filters affect only the current page in this mock setup.",
 ];
 
-export function PortfolioPositionsTable({
-  portfolio,
+export function PortfolioTradesTable({
+  portfolioId,
+  asOf,
+  trades,
 }: {
-  portfolio: PortfolioResponse;
+  portfolioId: string;
+  asOf: string;
+  trades: PortfolioTrade[];
 }) {
-  const gridApiRef = useRef<GridApi | null>(null);
+  const gridApiRef = useRef<GridApi<PortfolioTrade> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCount, setSelectedCount] = useState(0);
   const [hasFilters, setHasFilters] = useState(false);
-  const totalRows = portfolio.positions.length;
+  const totalRows = trades.length;
   const lastPage = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
   const currentRows = useMemo(() => {
     const start = (currentPage - 1) * PAGE_SIZE;
-    return portfolio.positions.slice(start, start + PAGE_SIZE);
-  }, [currentPage, portfolio.positions]);
+    return trades.slice(start, start + PAGE_SIZE);
+  }, [currentPage, trades]);
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
 
@@ -159,7 +160,7 @@ export function PortfolioPositionsTable({
     }
 
     api.exportDataAsCsv({
-      fileName: `${portfolio.portfolioId.toLowerCase()}-positions.csv`,
+      fileName: `${portfolioId.toLowerCase()}-trades.csv`,
     });
   }
 
@@ -198,14 +199,14 @@ export function PortfolioPositionsTable({
   }, [hasFilters]);
 
   return (
-    <section className="flex h-[520px] shrink-0 flex-col rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
+    <section className="flex h-[780px] shrink-0 flex-col rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
       <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
-            Position
+            Trades
           </div>
           <div className="text-lg font-medium tracking-[0.08em] text-white/90">
-            {new Date(portfolio.asOf).toLocaleString("en-GB", { hour12: false })}
+            {new Date(asOf).toLocaleString("en-GB", { hour12: false })}
           </div>
         </div>
       </div>
@@ -220,24 +221,24 @@ export function PortfolioPositionsTable({
           >
             Fit Columns
           </button>
-        <button
-          type="button"
-          onClick={handleFitColumnsToData}
-          className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
-          title="Auto-size columns to content"
-        >
-          Fit Data
-        </button>
-        <button
-          type="button"
-          onClick={handleDownloadCsv}
-          className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
-          title="Download table as CSV"
-        >
-          Download CSV
-        </button>
-        <HelixHelpTooltip items={helpItems} />
-      </div>
+          <button
+            type="button"
+            onClick={handleFitColumnsToData}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
+            title="Auto-size columns to content"
+          >
+            Fit Data
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadCsv}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
+            title="Download table as CSV"
+          >
+            Download CSV
+          </button>
+          <HelixHelpTooltip items={helpItems} />
+        </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="mr-1 text-sm text-[color:var(--color-muted)]">
@@ -267,20 +268,8 @@ export function PortfolioPositionsTable({
             title="First page"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M18 18l-6-6 6-6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M12 18l-6-6 6-6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M18 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
@@ -297,13 +286,7 @@ export function PortfolioPositionsTable({
             title="Previous page"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M15 18l-6-6 6-6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M15 18l-6-6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
@@ -320,13 +303,7 @@ export function PortfolioPositionsTable({
             title="Next page"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M9 6l6 6-6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M9 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
@@ -343,20 +320,8 @@ export function PortfolioPositionsTable({
             title="Last page"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M6 6l6 6-6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M12 6l6 6-6 6"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M6 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M12 6l6 6-6 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
@@ -373,27 +338,9 @@ export function PortfolioPositionsTable({
             title="Reset filters"
           >
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-              <path
-                d="M4 6h16"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M7 12h10"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M10 18h4"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
+              <path d="M4 6h16" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M7 12h10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+              <path d="M10 18h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
           </button>
 
@@ -422,21 +369,21 @@ export function PortfolioPositionsTable({
           rowData={currentRows}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
-          rowIdField="positionId"
-          onGridReady={(event: GridReadyEvent) => {
+          rowIdField="trade_id"
+          onGridReady={(event: GridReadyEvent<PortfolioTrade>) => {
             gridApiRef.current = event.api;
           }}
-          onSelectionChanged={(event: SelectionChangedEvent) => {
+          onSelectionChanged={(event: SelectionChangedEvent<PortfolioTrade>) => {
             setSelectedCount(event.api.getSelectedNodes().length);
           }}
-          onCellDoubleClicked={(event: CellDoubleClickedEvent) => {
+          onCellDoubleClicked={(event: CellDoubleClickedEvent<PortfolioTrade>) => {
             if (!event.node) {
               return;
             }
             event.node.setSelected(!event.node.isSelected());
             setSelectedCount(event.api.getSelectedNodes().length);
           }}
-          onFilterChanged={(event: FilterChangedEvent) => {
+          onFilterChanged={(event: FilterChangedEvent<PortfolioTrade>) => {
             const filterModel = event.api.getFilterModel();
             setHasFilters(Object.keys(filterModel ?? {}).length > 0);
             setCurrentPage(1);
