@@ -570,11 +570,20 @@ Below is the recommended prototype relational model for `helix-store`.
 | --------------- | ------------- | ------------------------------------------ |
 | trade_id        | TEXT PK       | Trade identifier                           |
 | portfolio_id    | TEXT FK       | References portfolio                       |
+| position_id     | TEXT nullable | Resolved position bucket identifier        |
 | instrument_id   | TEXT          | Instrument identifier                      |
+| instrument_name | TEXT          | Denormalized instrument name               |
+| asset_class     | TEXT          | Equity / FX / Rates / Commodity / etc      |
+| currency        | TEXT          | Trade currency                             |
 | side            | TEXT          | BUY/SELL                                   |
 | quantity        | REAL          | Trade quantity                             |
 | price           | REAL          | Trade price                                |
+| notional        | REAL          | Trade notional                             |
 | trade_date      | DATE          | Trade date                                 |
+| settlement_date | DATE nullable | Settlement date                            |
+| strategy        | TEXT nullable | Strategy classification                    |
+| book            | TEXT nullable | Book identifier                            |
+| desk            | TEXT nullable | Trading desk                               |
 | status          | TEXT          | pending/accepted/rejected/processed/failed |
 | version         | INTEGER       | For amendments                             |
 | parent_trade_id | TEXT nullable | Original trade reference                   |
@@ -583,15 +592,30 @@ Below is the recommended prototype relational model for `helix-store`.
 
 #### `position_snapshot`
 
-| Column          | Type          | Notes               |
-| --------------- | ------------- | ------------------- |
-| snapshot_id     | TEXT PK       | Snapshot identifier |
-| portfolio_id    | TEXT FK       | Portfolio           |
-| instrument_id   | TEXT          | Instrument          |
-| quantity        | REAL          | Net position        |
-| avg_cost        | REAL          | Average cost        |
-| as_of_ts        | DATETIME      | Snapshot timestamp  |
-| source_event_id | TEXT nullable | Traceability        |
+| Column              | Type          | Notes                                            |
+| ------------------- | ------------- | ------------------------------------------------ |
+| snapshot_id         | TEXT PK       | Snapshot identifier                              |
+| portfolio_id        | TEXT FK       | Portfolio                                        |
+| position_id         | TEXT          | Position bucket identifier                       |
+| instrument_id       | TEXT          | Instrument                                       |
+| instrument_name     | TEXT          | Denormalized instrument name                     |
+| asset_class         | TEXT          | Equity / FX / Rates / Commodity / etc           |
+| currency            | TEXT          | Position currency                                |
+| quantity            | REAL          | Net position quantity                            |
+| direction           | TEXT          | LONG / SHORT                                     |
+| average_cost        | REAL          | Average cost / average price                     |
+| trade_date          | DATE          | Position open date or earliest contributing trade |
+| last_update_ts      | DATETIME      | Latest trade-driven position update              |
+| market_price        | REAL nullable | Latest market price                              |
+| market_data_ts      | DATETIME nullable | Timestamp of market price snapshot          |
+| fx_rate             | REAL nullable | FX rate into portfolio base currency             |
+| notional            | REAL nullable | Position notional / market value                 |
+| sector              | TEXT nullable | Sector classification                            |
+| region              | TEXT nullable | Region classification                            |
+| strategy            | TEXT nullable | Strategy / book classification                   |
+| desk                | TEXT nullable | Trading desk                                     |
+| as_of_ts            | DATETIME      | Snapshot timestamp                               |
+| source_event_id     | TEXT nullable | Traceability                                     |
 
 #### `market_data_snapshot`
 
