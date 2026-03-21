@@ -1,3 +1,5 @@
+import { PortfolioDashboard } from "@/components/dashboard/PortfolioDashboard";
+
 export default function Home() {
-  return <section className="flex min-h-full w-full" />;
+  return <PortfolioDashboard />;
 }

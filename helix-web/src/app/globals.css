@@ -28,7 +28,7 @@
   --color-text: #e8f0f6;
   --color-muted: #a7b3c3;
   --color-accent: #2dd3b6;
-  --color-success: #89a64e;
+  --color-success: #22c55e;
   --color-link: #7aa2f7;
   --color-link-surface: var(--color-bg);
   --color-link-surface-hover: var(--color-card);
@@ -81,6 +81,68 @@ select {
   hyphens: none;
   overflow-wrap: normal;
   word-break: normal;
+}
+
+.helix-ag-grid.ag-theme-quartz-dark {
+  --ag-background-color: transparent;
+  --ag-foreground-color: var(--color-text);
+  --ag-secondary-foreground-color: var(--color-muted);
+  --ag-header-background-color: var(--color-card);
+  --ag-odd-row-background-color: rgba(255, 255, 255, 0.02);
+  --ag-row-hover-color: color-mix(in oklab, var(--color-text) 5%, transparent);
+  --ag-border-color: var(--color-border);
+  --ag-header-column-resize-handle-color: rgba(255, 255, 255, 0.45);
+  --ag-active-color: var(--color-accent);
+  --ag-font-size: 0.95rem;
+  --ag-font-family: "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
+  --ag-selected-row-background-color: color-mix(in oklab, var(--color-accent) 18%, transparent);
+  --ag-range-selection-border-color: var(--color-accent);
+  --ag-range-selection-border-style: solid;
+  --ag-range-selection-background-color: color-mix(in oklab, var(--color-accent) 12%, transparent);
+  --ag-range-selection-background-color-2: color-mix(in oklab, var(--color-accent) 18%, transparent);
+  --ag-range-selection-background-color-3: color-mix(in oklab, var(--color-accent) 24%, transparent);
+  --ag-range-selection-background-color-4: color-mix(in oklab, var(--color-accent) 30%, transparent);
+  --ag-range-selection-highlight-color: color-mix(in oklab, var(--color-accent) 30%, transparent);
+}
+
+.helix-ag-grid.ag-theme-quartz-dark .ag-cell-focus:not(.ag-cell-range-selected) {
+  outline: 2px solid var(--color-accent);
+  outline-offset: -2px;
+  background: color-mix(in oklab, var(--color-accent) 18%, transparent);
+}
+
+.helix-ag-grid.ag-theme-quartz-dark .ag-row-selected .ag-cell {
+  background: color-mix(in oklab, var(--color-accent) 18%, transparent);
+}
+
+.helix-ag-grid .ag-root-wrapper {
+  border: 0;
+  border-radius: 0.75rem;
+  overflow: hidden;
+  background: transparent;
+}
+
+.helix-ag-grid .ag-header-cell,
+.helix-ag-grid .ag-cell {
+  display: flex;
+  align-items: center;
+}
+
+.helix-ag-grid .ag-floating-filter-input,
+.helix-ag-grid .ag-input-field-input {
+  color: var(--color-text);
+}
+
+.helix-pnl-cell {
+  font-variant-numeric: tabular-nums;
+}
+
+.helix-pnl-cell-positive {
+  color: color-mix(in oklab, var(--color-accent) 88%, white 12%);
+}
+
+.helix-pnl-cell-negative {
+  color: #fca5a5;
 }
 
 @media (min-width: 1920px) {

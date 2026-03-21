@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
+import "ag-grid-community/styles/ag-grid.css";
+import "ag-grid-community/styles/ag-theme-quartz.css";
 import "./globals.css";
-import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 
 export const metadata: Metadata = {
@@ -21,10 +22,7 @@ export default function RootLayout({
           className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden"
         >
           <Header />
-          <main className="min-h-0 flex-1 overflow-auto px-[5vw] py-5">
-            {children}
-          </main>
-          <Footer />
+          <main className="min-h-0 flex-1 overflow-auto px-[5vw] py-5">{children}</main>
         </div>
       </body>
     </html>
