@@ -9,6 +9,8 @@ import type {
   SelectionChangedEvent,
 } from "ag-grid-community";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
+import { TradeFormModal } from "@/components/dashboard/TradeFormModal";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
@@ -22,7 +24,6 @@ const formatDecimalCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
 
 const columnDefs: ColDef<PortfolioTrade>[] = [
   { field: "trade_id", headerName: "Trade ID", minWidth: 150 },
-  { field: "position_id", headerName: "Position ID", minWidth: 130 },
   { field: "instrument_id", headerName: "Instrument ID", minWidth: 130 },
   { field: "instrument_name", headerName: "Instrument Name", minWidth: 220 },
   { field: "asset_class", headerName: "Asset Class", minWidth: 130 },
@@ -49,7 +50,7 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     type: "numericColumn",
     valueFormatter: formatDecimalCell,
   },
-  { field: "trade_date", headerName: "Trade Date", minWidth: 135 },
+  { field: "trade_timestamp", headerName: "Trade Timestamp", minWidth: 220 },
   { field: "settlement_date", headerName: "Settlement Date", minWidth: 155 },
   { field: "strategy", headerName: "Strategy", minWidth: 160 },
   { field: "book", headerName: "Book", minWidth: 160 },
@@ -75,13 +76,13 @@ const defaultColDef: ColDef<PortfolioTrade> = {
     if (typeof params.value !== "number") {
       if (typeof params.value === "string") {
         if (
-          params.column.getColId() === "trade_date" ||
           params.column.getColId() === "settlement_date"
         ) {
           return new Date(`${params.value}T00:00:00Z`).toLocaleDateString("en-GB");
         }
 
         if (
+          params.column.getColId() === "trade_timestamp" ||
           params.column.getColId() === "created_at" ||
           params.column.getColId() === "updated_at"
         ) {
@@ -113,17 +114,24 @@ const helpItems = [
 
 export function PortfolioTradesTable({
   portfolioId,
-  asOf,
   trades,
+  collapsed,
+  onToggle,
+  onSaveTrade,
 }: {
   portfolioId: string;
-  asOf: string;
   trades: PortfolioTrade[];
+  collapsed: boolean;
+  onToggle: () => void;
+  onSaveTrade: (trade: PortfolioTrade) => void;
 }) {
   const gridApiRef = useRef<GridApi<PortfolioTrade> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [selectedCount, setSelectedCount] = useState(0);
   const [hasFilters, setHasFilters] = useState(false);
+  const [selectedTrade, setSelectedTrade] = useState<PortfolioTrade | null>(null);
+  const [isFormOpen, setIsFormOpen] = useState(false);
+  const [formSeed, setFormSeed] = useState(0);
   const totalRows = trades.length;
   const lastPage = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
   const currentRows = useMemo(() => {
@@ -138,7 +146,7 @@ export function PortfolioTradesTable({
     if (!api) {
       return;
     }
-    const cols = api.getAllDisplayedColumns();
+    const cols = api.getColumns?.() ?? api.getAllDisplayedColumns();
     const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
     api.autoSizeColumns?.(colIds, false);
   }
@@ -148,7 +156,7 @@ export function PortfolioTradesTable({
     if (!api) {
       return;
     }
-    const cols = api.getAllDisplayedColumns();
+    const cols = api.getColumns?.() ?? api.getAllDisplayedColumns();
     const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
     api.autoSizeColumns?.(colIds, true);
   }
@@ -178,6 +186,12 @@ export function PortfolioTradesTable({
   function handleClearSelection() {
     gridApiRef.current?.deselectAll();
     setSelectedCount(0);
+    setSelectedTrade(null);
+  }
+
+  function handleOpenTradeForm() {
+    setFormSeed((seed) => seed + 1);
+    setIsFormOpen(true);
   }
 
   useEffect(() => {
@@ -199,20 +213,22 @@ export function PortfolioTradesTable({
   }, [hasFilters]);
 
   return (
-    <section className="flex h-[780px] shrink-0 flex-col rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
-      <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
-            Trades
-          </div>
-          <div className="text-lg font-medium tracking-[0.08em] text-white/90">
-            {new Date(asOf).toLocaleString("en-GB", { hour12: false })}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <DashboardCardShell
+      title="Trades"
+      collapsed={collapsed}
+      onToggle={onToggle}
+      expandedClassName="h-[780px] shrink-0"
+    >
+      <div className="mb-4 mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[color:var(--color-muted)]">
+          <button
+            type="button"
+            onClick={handleOpenTradeForm}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-[color:var(--color-accent)] px-3 py-1 text-sm font-medium text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/10"
+            title={selectedTrade ? "Amend selected trade" : "Add new trade"}
+          >
+            {selectedTrade ? "Amend" : "Add"}
+          </button>
           <button
             type="button"
             onClick={handleFitColumnsToHeader}
@@ -374,14 +390,18 @@ export function PortfolioTradesTable({
             gridApiRef.current = event.api;
           }}
           onSelectionChanged={(event: SelectionChangedEvent<PortfolioTrade>) => {
-            setSelectedCount(event.api.getSelectedNodes().length);
+            const selectedRows = event.api.getSelectedRows();
+            setSelectedCount(selectedRows.length);
+            setSelectedTrade(selectedRows[0] ?? null);
           }}
           onCellDoubleClicked={(event: CellDoubleClickedEvent<PortfolioTrade>) => {
             if (!event.node) {
               return;
             }
             event.node.setSelected(!event.node.isSelected());
-            setSelectedCount(event.api.getSelectedNodes().length);
+            const selectedRows = event.api.getSelectedRows();
+            setSelectedCount(selectedRows.length);
+            setSelectedTrade(selectedRows[0] ?? null);
           }}
           onFilterChanged={(event: FilterChangedEvent<PortfolioTrade>) => {
             const filterModel = event.api.getFilterModel();
@@ -396,9 +416,22 @@ export function PortfolioTradesTable({
               checkboxes: false,
               headerCheckbox: false,
             },
+            suppressColumnVirtualisation: true,
           }}
         />
       </div>
-    </section>
+      <TradeFormModal
+        key={`${selectedTrade?.trade_id ?? "new"}-${portfolioId}-${formSeed}`}
+        open={isFormOpen}
+        portfolioId={portfolioId}
+        trade={selectedTrade}
+        onClose={() => setIsFormOpen(false)}
+        onSave={(trade) => {
+          onSaveTrade(trade);
+          setIsFormOpen(false);
+          setSelectedTrade(trade);
+        }}
+      />
+    </DashboardCardShell>
   );
 }

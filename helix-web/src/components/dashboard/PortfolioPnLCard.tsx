@@ -1,17 +1,26 @@
 import type { MetricValue } from "@/lib/mock/portfolio";
+import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { formatSignedInteger } from "@/lib/format/number";
 
 export function PortfolioPnLCard({
   metrics,
+  collapsed,
+  onToggle,
 }: {
   metrics: MetricValue[];
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
+  const totalPnL = metrics.find((metric) => metric.label === "Total P&L")?.value ?? 0;
+
   return (
-    <section className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-6 py-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
-      <div className="mb-4 text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
-        P&amp;L Summary
-      </div>
-      <div className="space-y-4">
+    <DashboardCardShell
+      title="P&L Summary"
+      collapsed={collapsed}
+      collapsedValue={formatSignedInteger(totalPnL)}
+      onToggle={onToggle}
+    >
+      <div className="mt-4 space-y-4">
         {metrics.map((metric) => (
           <div
             key={metric.label}
@@ -30,6 +39,6 @@ export function PortfolioPnLCard({
           </div>
         ))}
       </div>
-    </section>
+    </DashboardCardShell>
   );
 }

@@ -14,6 +14,15 @@ authors = [
 ]
 dependencies = []
 
+[project.scripts]
+helix-runtime = "helix_runtime.cli:main"
+
+[project.optional-dependencies]
+brokers = [
+  "kafka-python>=2.0",
+  "pika>=1.3",
+]
+
 [tool.setuptools]
 package-dir = { "" = "src" }
 

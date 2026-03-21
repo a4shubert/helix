@@ -213,6 +213,9 @@ TestResults/
 .cursorignore
 .cursorindexingignore
 
+# Local broker UI tooling
+tools/kafka-ui/
+
 # Marimo
 marimo/_static/
 marimo/_lsp/

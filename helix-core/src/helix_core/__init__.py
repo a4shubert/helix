@@ -1,5 +1,31 @@
 """Core analytics library for the Helix platform."""
 
-from .valuation import mark_to_market
+from .analytics import (
+    compute_portfolio_analytics,
+    compute_portfolio_pnl,
+    compute_portfolio_risk,
+    rebuild_positions,
+    mark_to_market,
+)
+from .models import (
+    MarketInput,
+    PortfolioAnalytics,
+    PortfolioPnlSnapshot,
+    PortfolioRiskSnapshot,
+    PositionSnapshot,
+    Trade,
+)
 
-__all__ = ["mark_to_market"]
+__all__ = [
+    "MarketInput",
+    "PortfolioAnalytics",
+    "PortfolioPnlSnapshot",
+    "PortfolioRiskSnapshot",
+    "PositionSnapshot",
+    "Trade",
+    "compute_portfolio_analytics",
+    "compute_portfolio_pnl",
+    "compute_portfolio_risk",
+    "mark_to_market",
+    "rebuild_positions",
+]

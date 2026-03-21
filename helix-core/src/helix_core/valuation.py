@@ -1,6 +1,5 @@
-"""Minimal valuation primitives for helix-core."""
+"""Backward-compatible valuation exports for helix-core."""
 
+from .analytics import mark_to_market
 
-def mark_to_market(quantity: float, price: float) -> float:
-    """Return the current market value of a position."""
-    return quantity * price
+__all__ = ["mark_to_market"]

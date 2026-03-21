@@ -9,6 +9,7 @@ import type {
   SelectionChangedEvent,
 } from "ag-grid-community";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
@@ -116,8 +117,12 @@ const helpItems = [
 
 export function PortfolioPositionsTable({
   portfolio,
+  collapsed,
+  onToggle,
 }: {
   portfolio: PortfolioResponse;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
   const gridApiRef = useRef<GridApi | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -198,19 +203,13 @@ export function PortfolioPositionsTable({
   }, [hasFilters]);
 
   return (
-    <section className="flex h-[520px] shrink-0 flex-col rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
-      <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
-        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
-            Position
-          </div>
-          <div className="text-lg font-medium tracking-[0.08em] text-white/90">
-            {new Date(portfolio.asOf).toLocaleString("en-GB", { hour12: false })}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-4 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+    <DashboardCardShell
+      title="Position"
+      collapsed={collapsed}
+      onToggle={onToggle}
+      expandedClassName="h-[520px] shrink-0"
+    >
+      <div className="mb-4 mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[color:var(--color-muted)]">
           <button
             type="button"
@@ -220,24 +219,24 @@ export function PortfolioPositionsTable({
           >
             Fit Columns
           </button>
-        <button
-          type="button"
-          onClick={handleFitColumnsToData}
-          className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
-          title="Auto-size columns to content"
-        >
-          Fit Data
-        </button>
-        <button
-          type="button"
-          onClick={handleDownloadCsv}
-          className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
-          title="Download table as CSV"
-        >
-          Download CSV
-        </button>
-        <HelixHelpTooltip items={helpItems} />
-      </div>
+          <button
+            type="button"
+            onClick={handleFitColumnsToData}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
+            title="Auto-size columns to content"
+          >
+            Fit Data
+          </button>
+          <button
+            type="button"
+            onClick={handleDownloadCsv}
+            className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
+            title="Download table as CSV"
+          >
+            Download CSV
+          </button>
+          <HelixHelpTooltip items={helpItems} />
+        </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="mr-1 text-sm text-[color:var(--color-muted)]">
@@ -452,6 +451,6 @@ export function PortfolioPositionsTable({
           }}
         />
       </div>
-    </section>
+    </DashboardCardShell>
   );
 }

@@ -1,4 +1,5 @@
 using HelixRest.Data;
+using HelixRest.Data.Entities;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;
 var builder = WebApplication.CreateBuilder(args);
@@ -46,7 +47,6 @@ app.UseSwagger();
 
 app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
 app.MapGet("/swagger", () => Results.Redirect("/swagger/index.html")).ExcludeFromDescription();
-app.MapGet("/swagger/", () => Results.Redirect("/swagger/index.html")).ExcludeFromDescription();
 app.MapGet("/swagger/index.html", () => Results.Content(
     """
     <!DOCTYPE html>
@@ -87,10 +87,264 @@ app.MapGet("/health", async (HelixContext db) =>
     return Results.Ok(new
     {
         service = "helix-rest",
-        database = canConnect ? "working" : "unreachable",
+        database = canConnect ? "success" : "unreachable",
     });
 }).WithTags("system");
+
+app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixContext db) =>
+{
+    var portfolio = await db.Portfolios
+        .AsNoTracking()
+        .FirstOrDefaultAsync(x => x.PortfolioId == portfolioId);
+
+    if (portfolio is null)
+    {
+        return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
+    }
+
+    var query = db.PositionSnapshots
+        .AsNoTracking()
+        .Where(x => x.PortfolioId == portfolioId);
+
+    if (asOf.HasValue)
+    {
+        query = query.Where(x => x.AsOfTs <= asOf.Value);
+    }
+
+    var positions = await query
+        .OrderBy(x => x.PositionId)
+        .Select(x => new
+        {
+            positionId = x.PositionId,
+            instrumentId = x.InstrumentId,
+            instrumentName = x.InstrumentName,
+            assetClass = x.AssetClass,
+            currency = x.Currency,
+            quantity = x.Quantity,
+            direction = x.Direction,
+            averageCost = x.AverageCost,
+            contractMultiplier = x.ContractMultiplier,
+            tradeDate = x.TradeDate,
+            lastUpdateTs = x.LastUpdateTs,
+            marketPrice = x.MarketPrice,
+            marketDataTs = x.MarketDataTs,
+            fxRate = x.FxRate,
+            notional = x.Notional,
+            marketValue = x.MarketValue,
+            sector = x.Sector,
+            region = x.Region,
+            strategy = x.Strategy,
+            desk = x.Desk
+        })
+        .ToListAsync();
+
+    return Results.Ok(new
+    {
+        portfolioId = portfolio.PortfolioId,
+        name = portfolio.Name,
+        status = portfolio.Status,
+        createdAt = portfolio.CreatedAt,
+        asOf = positions.MaxBy(x => x.lastUpdateTs)?.lastUpdateTs,
+        positions
+    });
+}).WithTags("portfolio");
+
+app.MapGet("/api/trades", async (
+    string portfolioId,
+    string? status,
+    DateTime? from,
+    DateTime? to,
+    HelixContext db) =>
+{
+    var query = db.Trades
+        .AsNoTracking()
+        .Where(x => x.PortfolioId == portfolioId);
+
+    if (!string.IsNullOrWhiteSpace(status))
+    {
+        query = query.Where(x => x.Status == status);
+    }
+
+    if (from.HasValue)
+    {
+        query = query.Where(x => x.TradeTimestamp >= from.Value);
+    }
+
+    if (to.HasValue)
+    {
+        query = query.Where(x => x.TradeTimestamp <= to.Value);
+    }
+
+    var trades = await query
+        .OrderByDescending(x => x.TradeTimestamp)
+        .Select(x => new
+        {
+            tradeId = x.TradeId,
+            portfolioId = x.PortfolioId,
+            positionId = x.PositionId,
+            instrumentId = x.InstrumentId,
+            instrumentName = x.InstrumentName,
+            assetClass = x.AssetClass,
+            currency = x.Currency,
+            side = x.Side,
+            quantity = x.Quantity,
+            price = x.Price,
+            contractMultiplier = x.ContractMultiplier,
+            notional = x.Notional,
+            tradeTimestamp = x.TradeTimestamp,
+            settlementDate = x.SettlementDate,
+            strategy = x.Strategy,
+            book = x.Book,
+            desk = x.Desk,
+            status = x.Status,
+            version = x.Version,
+            parentTradeId = x.ParentTradeId,
+            createdAt = x.CreatedAt,
+            updatedAt = x.UpdatedAt
+        })
+        .ToListAsync();
+
+    return Results.Ok(new
+    {
+        portfolioId,
+        count = trades.Count,
+        trades
+    });
+}).WithTags("trades");
+
+app.MapGet("/api/pnl", async (string portfolioId, DateTime? asOf, HelixContext db) =>
+{
+    var query = db.PnlSnapshots
+        .AsNoTracking()
+        .Where(x => x.PortfolioId == portfolioId);
+
+    if (asOf.HasValue)
+    {
+        query = query.Where(x => x.ValuationTs <= asOf.Value);
+    }
+
+    var snapshot = await query
+        .OrderByDescending(x => x.ValuationTs)
+        .FirstOrDefaultAsync();
+
+    return snapshot is null
+        ? Results.NotFound(new { message = $"No P&L snapshot found for '{portfolioId}'." })
+        : Results.Ok(new
+        {
+            snapshotId = snapshot.SnapshotId,
+            portfolioId = snapshot.PortfolioId,
+            totalPnl = snapshot.TotalPnl,
+            realizedPnl = snapshot.RealizedPnl,
+            unrealizedPnl = snapshot.UnrealizedPnl,
+            valuationTs = snapshot.ValuationTs,
+            marketDataAsOfTs = snapshot.MarketDataAsOfTs,
+            positionAsOfTs = snapshot.PositionAsOfTs
+        });
+}).WithTags("analytics");
+
+app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext db) =>
+{
+    var query = db.RiskSnapshots
+        .AsNoTracking()
+        .Where(x => x.PortfolioId == portfolioId);
+
+    if (asOf.HasValue)
+    {
+        query = query.Where(x => x.ValuationTs <= asOf.Value);
+    }
+
+    var snapshot = await query
+        .OrderByDescending(x => x.ValuationTs)
+        .FirstOrDefaultAsync();
+
+    return snapshot is null
+        ? Results.NotFound(new { message = $"No risk snapshot found for '{portfolioId}'." })
+        : Results.Ok(new
+        {
+            snapshotId = snapshot.SnapshotId,
+            portfolioId = snapshot.PortfolioId,
+            delta = snapshot.Delta,
+            gamma = snapshot.Gamma,
+            var95 = snapshot.Var95,
+            stressLoss = snapshot.StressLoss,
+            valuationTs = snapshot.ValuationTs,
+            marketDataAsOfTs = snapshot.MarketDataAsOfTs,
+            positionAsOfTs = snapshot.PositionAsOfTs
+        });
+}).WithTags("analytics");
+
+app.MapPost("/api/trades", async (CreateTradeRequest request, HelixContext db) =>
+{
+    var portfolioExists = await db.Portfolios.AnyAsync(x => x.PortfolioId == request.PortfolioId);
+    if (!portfolioExists)
+    {
+        return Results.BadRequest(new { message = $"Portfolio '{request.PortfolioId}' does not exist." });
+    }
+
+    var submittedAt = DateTime.UtcNow;
+    var tradeId = $"TRD-{request.PortfolioId}-{submittedAt:yyyyMMddHHmmss}";
+    var contractMultiplier = request.ContractMultiplier ?? 1.0;
+    var notional = request.Quantity * request.Price * contractMultiplier;
+
+    var entity = new TradeEntity
+    {
+        TradeId = tradeId,
+        PortfolioId = request.PortfolioId,
+        PositionId = string.IsNullOrWhiteSpace(request.PositionId)
+            ? $"{request.PortfolioId}-POS-{submittedAt:yyyyMMddHHmmss}"
+            : request.PositionId,
+        InstrumentId = request.InstrumentId,
+        InstrumentName = request.InstrumentName,
+        AssetClass = request.AssetClass,
+        Currency = request.Currency,
+        Side = request.Side,
+        Quantity = request.Quantity,
+        Price = request.Price,
+        ContractMultiplier = contractMultiplier,
+        Notional = notional,
+        TradeTimestamp = request.TradeTimestamp ?? submittedAt,
+        SettlementDate = request.SettlementDate,
+        Strategy = request.Strategy,
+        Book = request.Book,
+        Desk = request.Desk,
+        Status = "accepted",
+        Version = 1,
+        ParentTradeId = null,
+        CreatedAt = submittedAt,
+        UpdatedAt = submittedAt
+    };
+
+    db.Trades.Add(entity);
+    await db.SaveChangesAsync();
+
+    Console.WriteLine($"[HelixRest] trade.created published for {tradeId} (stub)");
+
+    return Results.Ok(new
+    {
+        tradeId,
+        status = "accepted",
+        submittedAt
+    });
+}).WithTags("trades");
 
 app.Run();
 
 public partial class Program { }
+
+public sealed record CreateTradeRequest(
+    string PortfolioId,
+    string? PositionId,
+    string InstrumentId,
+    string InstrumentName,
+    string AssetClass,
+    string Currency,
+    string Side,
+    double Quantity,
+    double Price,
+    double? ContractMultiplier,
+    DateTime? TradeTimestamp,
+    DateOnly? SettlementDate,
+    string? Strategy,
+    string? Book,
+    string? Desk
+);

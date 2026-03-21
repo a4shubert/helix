@@ -1,17 +1,19 @@
 import type { MetricValue } from "@/lib/mock/portfolio";
+import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { formatSignedInteger } from "@/lib/format/number";
 
 export function PortfolioRiskCard({
   metrics,
+  collapsed,
+  onToggle,
 }: {
   metrics: MetricValue[];
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
   return (
-    <section className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-6 py-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
-      <div className="mb-4 text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
-        Risk Snapshot
-      </div>
-      <div className="space-y-4">
+    <DashboardCardShell title="Risk Snapshot" collapsed={collapsed} onToggle={onToggle}>
+      <div className="mt-4 space-y-4">
         {metrics.map((metric) => (
           <div
             key={metric.label}
@@ -30,6 +32,6 @@ export function PortfolioRiskCard({
           </div>
         ))}
       </div>
-    </section>
+    </DashboardCardShell>
   );
 }

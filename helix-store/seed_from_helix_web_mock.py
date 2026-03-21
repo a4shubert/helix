@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import re
 import sqlite3
 import subprocess
@@ -9,9 +10,11 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parent.parent
-DB_PATH = ROOT / "helix-store" / "helix.db"
+DB_PATH = Path(os.environ.get("HELIX_DB_PATH", str(ROOT / "helix-store" / "helix.db")))
 MOCK_TS_PATH = ROOT / "helix-web" / "src" / "lib" / "mock" / "portfolio.ts"
 DASHBOARD_TSX_PATH = ROOT / "helix-web" / "src" / "components" / "dashboard" / "PortfolioDashboard.tsx"
+TRADES_JSON_PATH = ROOT / "helix-web" / "src" / "lib" / "mock" / "trades.json"
+MARKET_DATA_SEED_PATH = ROOT / "helix-store" / "market_data_snapshot_seed.json"
 
 
 def load_mock_portfolios() -> dict[str, object]:
@@ -57,9 +60,19 @@ def metric_lookup(metrics: list[dict[str, object]]) -> dict[str, float]:
     return {str(item["label"]): float(item["value"]) for item in metrics}
 
 
+def load_mock_trades() -> list[dict[str, object]]:
+    return json.loads(TRADES_JSON_PATH.read_text(encoding="utf-8"))
+
+
+def load_market_data_rows() -> list[dict[str, object]]:
+    return json.loads(MARKET_DATA_SEED_PATH.read_text(encoding="utf-8"))
+
+
 def main() -> None:
     mock_dashboards = load_mock_portfolios()
     portfolio_names = load_portfolio_names()
+    mock_trades = load_mock_trades()
+    market_data_rows = load_market_data_rows()
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON;")
@@ -141,16 +154,22 @@ def main() -> None:
                 ),
             )
 
+        for portfolio_id, dashboard in mock_dashboards.items():
+            portfolio_payload = dashboard["portfolio"]
+            positions = portfolio_payload["positions"]
+            as_of = portfolio_payload["asOf"]
+
             for position in positions:
                 conn.execute(
                     """
                     INSERT INTO position_snapshot (
                       snapshot_id, portfolio_id, position_id, instrument_id, instrument_name,
-                      asset_class, currency, quantity, direction, average_cost, trade_date,
-                      last_update_ts, market_price, market_data_ts, fx_rate, notional,
+                      asset_class, currency, quantity, direction, average_cost, contract_multiplier,
+                      trade_date, last_update_ts, market_price, market_data_ts, fx_rate, notional,
+                      market_value,
                       sector, region, strategy, desk, as_of_ts, source_event_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         f"POSITION-{position['positionId']}-{as_of}",
@@ -163,12 +182,14 @@ def main() -> None:
                         position["quantity"],
                         position["direction"],
                         position["averageCost"],
+                        position["contractMultiplier"],
                         position["tradeDate"],
                         position["lastUpdateTs"],
                         position["marketPrice"],
                         position["marketDataTs"],
                         position["fxRate"],
                         position["notional"],
+                        position["marketValue"],
                         position["sector"],
                         position["region"],
                         position["strategy"],
@@ -178,39 +199,60 @@ def main() -> None:
                     ),
                 )
 
-                conn.execute(
-                    """
-                    INSERT INTO market_data_snapshot (
-                      snapshot_id, instrument_id, field_name, field_value, as_of_ts, source
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        f"MD-{position['positionId']}-MARKET_PRICE",
-                        position["instrumentId"],
-                        "market_price",
-                        position["marketPrice"],
-                        position["marketDataTs"],
-                        "helix-web-mock",
-                    ),
+        for trade in mock_trades:
+            conn.execute(
+                """
+                INSERT INTO trades (
+                  trade_id, portfolio_id, position_id, instrument_id, instrument_name,
+                  asset_class, currency, side, quantity, price, contract_multiplier, notional, trade_timestamp,
+                  settlement_date, strategy, book, desk, status, version,
+                  parent_trade_id, created_at, updated_at
                 )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    trade["trade_id"],
+                    trade["portfolio_id"],
+                    trade["position_id"],
+                    trade["instrument_id"],
+                    trade["instrument_name"],
+                    trade["asset_class"],
+                    trade["currency"],
+                    trade["side"],
+                    trade["quantity"],
+                    trade["price"],
+                    trade["contract_multiplier"],
+                    trade["notional"],
+                    trade["trade_timestamp"],
+                    trade["settlement_date"],
+                    trade["strategy"],
+                    trade["book"],
+                    trade["desk"],
+                    trade["status"],
+                    trade["version"],
+                    trade["parent_trade_id"],
+                    trade["created_at"],
+                    trade["updated_at"],
+                ),
+            )
 
-                conn.execute(
-                    """
-                    INSERT INTO market_data_snapshot (
-                      snapshot_id, instrument_id, field_name, field_value, as_of_ts, source
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        f"MD-{position['positionId']}-FX_RATE",
-                        position["instrumentId"],
-                        "fx_rate",
-                        position["fxRate"],
-                        position["marketDataTs"],
-                        "helix-web-mock",
-                    ),
+        for row in market_data_rows:
+            conn.execute(
+                """
+                INSERT INTO market_data_snapshot (
+                  snapshot_id, instrument_id, field_name, field_value, as_of_ts, source
                 )
+                VALUES (?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    row["snapshot_id"],
+                    row["instrument_id"],
+                    row["field_name"],
+                    row["field_value"],
+                    row["as_of_ts"],
+                    row["source"],
+                ),
+            )
 
         conn.commit()
 

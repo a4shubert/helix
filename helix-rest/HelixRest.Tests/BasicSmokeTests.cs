@@ -1,8 +1,11 @@
 using System;
 using System.IO;
+using System.Linq;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Threading.Tasks;
 using HelixRest.Data;
+using HelixRest.Data.Entities;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -27,6 +30,14 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HelixContext>();
         db.Database.EnsureCreated();
+        db.Portfolios.Add(new PortfolioEntity
+        {
+            PortfolioId = "PF-TEST",
+            Name = "Test Portfolio",
+            Status = "active",
+            CreatedAt = DateTime.UtcNow
+        });
+        db.SaveChanges();
     }
 
     [Fact]
@@ -43,5 +54,34 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
         using HttpClient client = _factory.CreateClient();
         var resp = await client.GetAsync("/health");
         resp.EnsureSuccessStatusCode();
+    }
+
+    [Fact]
+    public async Task Post_trade_persists_and_returns_accepted()
+    {
+        using HttpClient client = _factory.CreateClient();
+        var response = await client.PostAsJsonAsync("/api/trades", new
+        {
+            portfolioId = "PF-TEST",
+            instrumentId = "AAPL",
+            instrumentName = "Apple Inc",
+            assetClass = "Equity",
+            currency = "USD",
+            side = "BUY",
+            quantity = 100.0,
+            price = 200.0,
+            contractMultiplier = 1.0,
+            tradeTimestamp = "2026-03-21T09:21:00Z",
+            settlementDate = "2026-03-24",
+            strategy = "Main",
+            book = "MAIN",
+            desk = "Equities"
+        });
+
+        response.EnsureSuccessStatusCode();
+
+        using var scope = _factory.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<HelixContext>();
+        Assert.Single(db.Trades.Where(x => x.PortfolioId == "PF-TEST"));
     }
 }
