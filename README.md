@@ -621,12 +621,14 @@ Below is the recommended prototype relational model for `helix-store`.
 
 | Column        | Type     | Notes                 |
 | ------------- | -------- | --------------------- |
-| snapshot_id   | TEXT PK  | Snapshot identifier   |
+| snapshot_id   | TEXT     | Snapshot batch identifier |
 | instrument_id | TEXT     | Instrument            |
 | field_name    | TEXT     | price/vol/rate/etc    |
 | field_value   | REAL     | Value                 |
 | as_of_ts      | DATETIME | Market data timestamp |
 | source        | TEXT     | Feed source           |
+
+Primary key: `(snapshot_id, instrument_id, field_name)`
 
 #### `pnl_snapshot`
 

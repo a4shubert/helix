@@ -35,7 +35,7 @@ export function PortfolioDashboard() {
         selected={selectedPortfolio}
         onSelect={(key) => setSelectedPortfolio(key)}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-6">
+      <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
         <div className="shrink-0 grid gap-6 xl:grid-cols-2">
           <PortfolioPnLCard metrics={pnlMetrics} />
           <PortfolioRiskCard metrics={riskMetrics} />

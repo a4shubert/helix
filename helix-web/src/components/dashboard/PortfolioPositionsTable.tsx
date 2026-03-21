@@ -198,7 +198,7 @@ export function PortfolioPositionsTable({
   }, [hasFilters]);
 
   return (
-    <section className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
+    <section className="flex min-h-0 flex-1 flex-col rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
       <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
           <div className="text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
@@ -417,7 +417,7 @@ export function PortfolioPositionsTable({
         </div>
       </div>
 
-      <div className="h-[620px] w-full">
+      <div className="min-h-0 flex-1 w-full">
         <HelixAgTable
           rowData={currentRows}
           columnDefs={columnDefs}

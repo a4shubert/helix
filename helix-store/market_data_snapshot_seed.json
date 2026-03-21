@@ -1,0 +1,146 @@
+[
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "US10Y",
+    "field_name": "price",
+    "field_value": 110.8,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "US10Y",
+    "field_name": "yield",
+    "field_value": 4.12,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "EURUSD",
+    "field_name": "price",
+    "field_value": 1.09,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "EURUSD",
+    "field_name": "vol_1m",
+    "field_value": 0.085,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "USDJPY",
+    "field_name": "price",
+    "field_value": 150.0,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "USDJPY",
+    "field_name": "vol_1m",
+    "field_value": 0.095,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "SPX",
+    "field_name": "price",
+    "field_value": 5100.0,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "SPX",
+    "field_name": "vol_1m",
+    "field_value": 0.18,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "XAUUSD",
+    "field_name": "price",
+    "field_value": 2030.0,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "XAUUSD",
+    "field_name": "vol_1m",
+    "field_value": 0.22,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "CL1",
+    "field_name": "price",
+    "field_value": 77.5,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "CL1",
+    "field_name": "vol_1m",
+    "field_value": 0.30,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "AAPL",
+    "field_name": "price",
+    "field_value": 192.0,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "AAPL",
+    "field_name": "vol_1m",
+    "field_value": 0.25,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "NVDA",
+    "field_name": "price",
+    "field_value": 710.0,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "NVDA",
+    "field_name": "vol_1m",
+    "field_value": 0.42,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "BRLUSD",
+    "field_name": "price",
+    "field_value": 0.205,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  },
+  {
+    "snapshot_id": "MDS-20260321-0900",
+    "instrument_id": "BRLUSD",
+    "field_name": "carry",
+    "field_value": 0.065,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "SIMULATED_FEED"
+  }
+]
