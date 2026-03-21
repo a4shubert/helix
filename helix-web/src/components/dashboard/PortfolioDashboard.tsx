@@ -4,6 +4,7 @@ import { startTransition, useEffect, useState } from "react";
 import {
   amendTrade,
   createTrade,
+  fetchMarketData,
   fetchPnl,
   fetchPortfolio,
   fetchPortfolios,
@@ -18,9 +19,10 @@ import {
 } from "@/lib/api/helix";
 import { PortfolioPositionsTable } from "@/components/dashboard/PortfolioPositionsTable";
 import { PortfolioSidebar } from "@/components/dashboard/PortfolioSidebar";
+import { PortfolioMarketDataTable } from "@/components/dashboard/PortfolioMarketDataTable";
 import { PortfolioSummaryCard } from "@/components/dashboard/PortfolioSummaryCard";
 import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTable";
-import type { PortfolioResponse, PortfolioTrade } from "@/lib/api/types";
+import type { MarketDataRow, PortfolioResponse, PortfolioTrade } from "@/lib/api/types";
 
 const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
   portfolioId,
@@ -35,11 +37,14 @@ export function PortfolioDashboard() {
     summary: false,
     trades: false,
     position: false,
+    marketData: false,
   });
   const [portfolioById, setPortfolioById] = useState<Record<string, PortfolioResponse>>({});
   const [tradesByPortfolio, setTradesByPortfolio] = useState<Record<string, PortfolioTrade[]>>({});
   const [pnlByPortfolio, setPnlByPortfolio] = useState<Record<string, PnlSnapshotResponse>>({});
   const [riskByPortfolio, setRiskByPortfolio] = useState<Record<string, RiskSnapshotResponse>>({});
+  const [marketDataRows, setMarketDataRows] = useState<MarketDataRow[]>([]);
+  const [marketDataAsOf, setMarketDataAsOf] = useState<string>("");
   const [isLoading, setIsLoading] = useState(true);
   const [recomputingPortfolio, setRecomputingPortfolio] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,16 +56,25 @@ export function PortfolioDashboard() {
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
   const valuationTimestamp = pnlSnapshot?.valuationTs ?? riskSnapshot?.valuationTs;
 
-  async function refreshPortfolio(portfolioId: string) {
-    setIsLoading(true);
+  async function refreshPortfolio(
+    portfolioId: string,
+    options?: {
+      showLoading?: boolean;
+    },
+  ) {
+    const showLoading = options?.showLoading ?? false;
+    if (showLoading) {
+      setIsLoading(true);
+    }
     setError(null);
 
     try {
-      const [portfolioResponse, tradesResponse, pnlResponse, riskResponse] = await Promise.all([
+      const [portfolioResponse, tradesResponse, pnlResponse, riskResponse, marketDataResponse] = await Promise.all([
         fetchPortfolio(portfolioId),
         fetchTrades(portfolioId),
         fetchPnl(portfolioId),
         fetchRisk(portfolioId),
+        fetchMarketData(),
       ]);
 
       startTransition(() => {
@@ -68,11 +82,15 @@ export function PortfolioDashboard() {
         setTradesByPortfolio((current) => ({ ...current, [portfolioId]: tradesResponse.trades }));
         setPnlByPortfolio((current) => ({ ...current, [portfolioId]: pnlResponse }));
         setRiskByPortfolio((current) => ({ ...current, [portfolioId]: riskResponse }));
+        setMarketDataRows(marketDataResponse.rows);
+        setMarketDataAsOf(marketDataResponse.asOf);
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load portfolio data.");
     } finally {
-      setIsLoading(false);
+      if (showLoading) {
+        setIsLoading(false);
+      }
     }
   }
 
@@ -89,7 +107,7 @@ export function PortfolioDashboard() {
     } else {
       await createTrade(trade);
     }
-    await refreshPortfolio(selectedPortfolio);
+    await refreshPortfolio(selectedPortfolio, { showLoading: false });
   }
 
   async function handleRecomputePortfolio(portfolioId: string) {
@@ -136,7 +154,7 @@ export function PortfolioDashboard() {
   }, []);
 
   useEffect(() => {
-    void refreshPortfolio(selectedPortfolio);
+    void refreshPortfolio(selectedPortfolio, { showLoading: true });
   }, [selectedPortfolio]);
 
   useEffect(() => {
@@ -145,12 +163,14 @@ export function PortfolioDashboard() {
     );
 
     const refresh = () => {
-      void refreshPortfolio(selectedPortfolio);
+      void refreshPortfolio(selectedPortfolio, { showLoading: false });
     };
 
     eventSource.addEventListener("positions.updated", refresh);
     eventSource.addEventListener("pl.updated", refresh);
     eventSource.addEventListener("risk.updated", refresh);
+    eventSource.addEventListener("trade.updated", refresh);
+    eventSource.addEventListener("marketdata.updated", refresh);
     eventSource.onerror = () => {
       eventSource.close();
     };
@@ -200,6 +220,12 @@ export function PortfolioDashboard() {
           portfolio={portfolio}
           collapsed={collapsedCards.position}
           onToggle={() => toggleCard("position")}
+        />
+        <PortfolioMarketDataTable
+          rows={marketDataRows}
+          asOf={marketDataAsOf}
+          collapsed={collapsedCards.marketData}
+          onToggle={() => toggleCard("marketData")}
         />
       </div>
     </section>

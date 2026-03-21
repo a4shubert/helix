@@ -6,11 +6,10 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from .broker_names import RABBITMQ_QUEUES
 from .brokers import KafkaUpdatePublisher
 from .config import KafkaConfig, RabbitMqConfig
 from .events import RabbitMqTask, parse_trade_created_payload
-from .processor import PortfolioRecomputeProcessor
+from .processor import PortfolioRecomputeProcessor, TradeComputeProcessor
 from .sqlite_store import SqliteHelixStore
 
 
@@ -110,7 +109,11 @@ class RabbitMqTaskWorker:
         store = SqliteHelixStore(self._db_path)
         publisher = KafkaUpdatePublisher(self._kafka_config)
         recompute_processor = PortfolioRecomputeProcessor(store, publisher)
-        target_queues = queue_names or RABBITMQ_QUEUES
+        trade_compute_processor = TradeComputeProcessor(store, publisher)
+        target_queues = queue_names or (
+            self._config.portfolio_recompute_queue,
+            self._config.trade_compute_queue,
+        )
 
         credentials = pika.PlainCredentials(self._config.username, self._config.password)
         parameters = pika.ConnectionParameters(
@@ -143,6 +146,14 @@ class RabbitMqTaskWorker:
                         "[helix-runtime] processed rabbitmq task "
                         f"task_id={result.task_id} task_type={result.task_type} "
                         f"portfolio_id={result.portfolio_id} published={len(result.published_events)}"
+                    )
+                elif method.routing_key == self._config.trade_compute_queue:
+                    result = trade_compute_processor.process(task)
+                    print(
+                        "[helix-runtime] processed rabbitmq task "
+                        f"task_id={result['task_id']} task_type={result['task_type']} "
+                        f"portfolio_id={result['portfolio_id']} trade_id={result['trade_id']} "
+                        f"notional={result['notional']}"
                     )
                 else:
                     raise ValueError(

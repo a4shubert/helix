@@ -8,4 +8,5 @@ public sealed class HelixRabbitMqOptions
     public string Password { get; set; } = "guest";
     public string VirtualHost { get; set; } = "/";
     public string PortfolioRecomputeQueue { get; set; } = BrokerNames.PortfolioRecomputeQueue;
+    public string TradeComputeQueue { get; set; } = BrokerNames.TradeComputeQueue;
 }

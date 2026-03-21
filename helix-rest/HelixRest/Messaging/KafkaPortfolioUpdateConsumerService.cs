@@ -1,4 +1,5 @@
 using System.Text.Json;
+using System.Net.Sockets;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
 using Microsoft.Extensions.Options;
@@ -35,61 +36,123 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
             return;
         }
 
-        await EnsureTopicsExistAsync(bootstrapServers, stoppingToken);
-
-        using var consumer = new ConsumerBuilder<Ignore, string>(new ConsumerConfig
-        {
-            BootstrapServers = bootstrapServers,
-            GroupId = "helix-rest-updates",
-            AutoOffsetReset = AutoOffsetReset.Latest,
-            EnableAutoCommit = true
-        }).Build();
-
-        consumer.Subscribe(BrokerNames.UpdateTopics);
-        _logger.LogInformation(
-            "Kafka update consumer subscribed to: {Topics}",
-            string.Join(", ", BrokerNames.UpdateTopics));
-
         while (!stoppingToken.IsCancellationRequested)
         {
-            ConsumeResult<Ignore, string>? result = null;
             try
             {
-                result = consumer.Consume(stoppingToken);
-                if (result?.Message?.Value is null)
+                if (!IsAnyBootstrapServerReachable(bootstrapServers))
                 {
+                    _logger.LogWarning(
+                        "Kafka bootstrap server is unreachable ({BootstrapServers}). Retrying in 3 seconds.",
+                        bootstrapServers);
+                    await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
                     continue;
                 }
 
-                var update = JsonSerializer.Deserialize<PortfolioUpdateEnvelope>(result.Message.Value, JsonOptions);
-                if (update is null
-                    || string.IsNullOrWhiteSpace(update.EventType)
-                    || string.IsNullOrWhiteSpace(update.PortfolioId)
-                    || string.IsNullOrWhiteSpace(update.SnapshotId)
-                    || string.IsNullOrWhiteSpace(update.Timestamp))
-                {
-                    continue;
-                }
+                await EnsureTopicsExistAsync(bootstrapServers, stoppingToken);
 
-                await _broadcaster.PublishAsync(new PortfolioUpdateNotification(
-                    update.EventType,
-                    update.PortfolioId,
-                    update.SnapshotId,
-                    update.Timestamp));
+                using var consumer = new ConsumerBuilder<Ignore, string>(new ConsumerConfig
+                {
+                    BootstrapServers = bootstrapServers,
+                    GroupId = "helix-rest-updates",
+                    AutoOffsetReset = AutoOffsetReset.Latest,
+                    EnableAutoCommit = true
+                }).Build();
+
+                consumer.Subscribe(BrokerNames.UpdateTopics);
+                _logger.LogInformation(
+                    "Kafka update consumer subscribed to: {Topics}",
+                    string.Join(", ", BrokerNames.UpdateTopics));
+
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    ConsumeResult<Ignore, string>? result = null;
+                    try
+                    {
+                        result = consumer.Consume(stoppingToken);
+                        if (result?.Message?.Value is null)
+                        {
+                            continue;
+                        }
+
+                        var update = JsonSerializer.Deserialize<PortfolioUpdateEnvelope>(result.Message.Value, JsonOptions);
+                        if (update is null
+                            || string.IsNullOrWhiteSpace(update.EventType)
+                            || string.IsNullOrWhiteSpace(update.PortfolioId)
+                            || string.IsNullOrWhiteSpace(update.SnapshotId)
+                            || string.IsNullOrWhiteSpace(update.Timestamp))
+                        {
+                            continue;
+                        }
+
+                        await _broadcaster.PublishAsync(new PortfolioUpdateNotification(
+                            update.EventType,
+                            update.PortfolioId,
+                            update.SnapshotId,
+                            update.Timestamp));
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                    catch (ConsumeException ex)
+                    {
+                        _logger.LogWarning(ex, "Kafka consume error for topic {Topic}.", result?.Topic);
+                        break;
+                    }
+                    catch (JsonException ex)
+                    {
+                        _logger.LogWarning(ex, "Ignoring invalid update message from topic {Topic}.", result?.Topic);
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
                 break;
             }
-            catch (ConsumeException ex)
+            catch (Exception ex)
             {
-                _logger.LogWarning(ex, "Kafka consume error for topic {Topic}.", result?.Topic);
-            }
-            catch (JsonException ex)
-            {
-                _logger.LogWarning(ex, "Ignoring invalid update message from topic {Topic}.", result?.Topic);
+                _logger.LogWarning(ex, "Kafka update consumer will retry in 3 seconds.");
+                try
+                {
+                    await Task.Delay(TimeSpan.FromSeconds(3), stoppingToken);
+                }
+                catch (OperationCanceledException)
+                {
+                    break;
+                }
             }
         }
+    }
+
+    private static bool IsAnyBootstrapServerReachable(string bootstrapServers)
+    {
+        foreach (var endpoint in bootstrapServers.Split(',', StringSplitOptions.TrimEntries | StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = endpoint.Split(':', 2, StringSplitOptions.TrimEntries);
+            var host = parts[0];
+            var port = 9092;
+            if (parts.Length == 2 && int.TryParse(parts[1], out var parsedPort))
+            {
+                port = parsedPort;
+            }
+
+            try
+            {
+                using var client = new TcpClient();
+                var connectTask = client.ConnectAsync(host, port);
+                if (connectTask.Wait(TimeSpan.FromMilliseconds(500)) && client.Connected)
+                {
+                    return true;
+                }
+            }
+            catch
+            {
+                // Ignore and continue probing other bootstrap endpoints.
+            }
+        }
+
+        return false;
     }
 
     private async Task EnsureTopicsExistAsync(string bootstrapServers, CancellationToken cancellationToken)
@@ -112,7 +175,10 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
         catch (CreateTopicsException ex)
         {
             var unexpected = ex.Results
-                .Where(result => result.Error.Code != ErrorCode.TopicAlreadyExists)
+                .Where(result =>
+                    result.Error.IsError
+                    && result.Error.Code != ErrorCode.TopicAlreadyExists
+                    && result.Error.Code != ErrorCode.NoError)
                 .ToArray();
 
             if (unexpected.Length > 0)

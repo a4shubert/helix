@@ -12,14 +12,12 @@ function SidebarContent<K extends string>({
   onSelect,
   onRecompute,
   recomputingKey,
-  groupName,
 }: {
   portfolios: readonly PortfolioSidebarItem<K>[];
   selected: K;
   onSelect: (key: K) => void;
   onRecompute: (key: K) => void;
   recomputingKey: K | null;
-  groupName: string;
 }) {
   return (
     <div className="flex flex-col gap-4 p-4 [background:var(--color-bg)]">
@@ -30,33 +28,41 @@ function SidebarContent<K extends string>({
         {portfolios.map((portfolio) => (
           <div
             key={portfolio.key}
-            className="flex items-start justify-between gap-3 rounded-md border border-[color:var(--color-border)] [background:var(--color-card)] px-3 py-2 text-[color:var(--color-text)] hover:border-[color:var(--color-accent)]"
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect(portfolio.key)}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onSelect(portfolio.key);
+              }
+            }}
+            className={`flex items-start justify-between gap-3 rounded-md border [background:var(--color-card)] px-3 py-2 text-[color:var(--color-text)] transition-colors ${
+              selected === portfolio.key
+                ? "border-[color:var(--color-accent)]"
+                : "border-[color:var(--color-border)] hover:border-[color:var(--color-accent)]"
+            }`}
           >
-            <label className="flex min-w-0 cursor-pointer items-start gap-2">
-              <input
-                type="radio"
-                name={groupName}
-                value={portfolio.key}
-                checked={selected === portfolio.key}
-                onChange={() => onSelect(portfolio.key)}
-                className="mt-1 accent-[color:var(--color-accent)]"
-              />
-              <span className="min-w-0">
-                <div className="text-lg font-medium">{portfolio.label}</div>
-                <div className="text-m break-words leading-snug whitespace-normal text-[color:var(--color-muted)]">
-                  {portfolio.description}
-                </div>
-              </span>
-            </label>
+            <span className="min-w-0">
+              <div className="text-lg font-medium">{portfolio.label}</div>
+              <div className="text-m break-words leading-snug whitespace-normal text-[color:var(--color-muted)]">
+                {portfolio.description}
+              </div>
+            </span>
             <button
               type="button"
               aria-label={`Recompute ${portfolio.label}`}
               title={`Recompute ${portfolio.label}`}
-              onClick={() => onRecompute(portfolio.key)}
-              disabled={recomputingKey === portfolio.key}
-              className="mt-0.5 shrink-0 rounded-md border border-[color:var(--color-border)] px-2 py-1 text-sm text-[color:var(--color-accent)] hover:border-[color:var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={(event) => {
+                event.stopPropagation();
+                onRecompute(portfolio.key);
+              }}
+              disabled={selected !== portfolio.key || recomputingKey === portfolio.key}
+              className="mt-0.5 inline-flex h-12 w-12 shrink-0 items-center justify-center overflow-visible rounded-lg border border-[color:var(--color-border)] text-white hover:border-[color:var(--color-accent)] disabled:cursor-not-allowed disabled:opacity-40"
             >
-              {recomputingKey === portfolio.key ? "..." : "↻"}
+              <span className="block translate-y-[2px] rotate-[200deg] text-[2.5rem] leading-[0.8]">
+                {recomputingKey === portfolio.key ? "..." : "↻"}
+              </span>
             </button>
           </div>
         ))}
@@ -86,7 +92,6 @@ export function PortfolioSidebar<K extends string>({
         onSelect={onSelect}
         onRecompute={onRecompute}
         recomputingKey={recomputingKey}
-        groupName="portfolio-static"
       />
     </aside>
   );

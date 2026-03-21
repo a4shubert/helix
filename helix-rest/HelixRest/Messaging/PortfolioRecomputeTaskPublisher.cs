@@ -6,7 +6,17 @@ namespace HelixRest.Messaging;
 
 public interface IPortfolioRecomputeTaskPublisher
 {
-    Task PublishAsync(string portfolioId, string? sourceEventId, DateTime requestedAt, CancellationToken cancellationToken);
+    Task PublishPortfolioRecomputeAsync(
+        string portfolioId,
+        string? sourceEventId,
+        DateTime requestedAt,
+        CancellationToken cancellationToken);
+
+    Task PublishTradeComputeAsync(
+        string portfolioId,
+        string tradeId,
+        DateTime requestedAt,
+        CancellationToken cancellationToken);
 }
 
 public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomputeTaskPublisher
@@ -18,14 +28,46 @@ public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomput
         _options = options.Value;
     }
 
-    public Task PublishAsync(string portfolioId, string? sourceEventId, DateTime requestedAt, CancellationToken cancellationToken)
+    public Task PublishPortfolioRecomputeAsync(
+        string portfolioId,
+        string? sourceEventId,
+        DateTime requestedAt,
+        CancellationToken cancellationToken)
+        => PublishTaskAsync(
+            _options.PortfolioRecomputeQueue,
+            BrokerNames.PortfolioRecomputeQueue,
+            portfolioId,
+            sourceEventId,
+            requestedAt,
+            cancellationToken);
+
+    public Task PublishTradeComputeAsync(
+        string portfolioId,
+        string tradeId,
+        DateTime requestedAt,
+        CancellationToken cancellationToken)
+        => PublishTaskAsync(
+            _options.TradeComputeQueue,
+            BrokerNames.TradeComputeQueue,
+            portfolioId,
+            tradeId,
+            requestedAt,
+            cancellationToken);
+
+    private Task PublishTaskAsync(
+        string queueName,
+        string taskType,
+        string portfolioId,
+        string? sourceEventId,
+        DateTime requestedAt,
+        CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
 
         var payloadBody = new Dictionary<string, object?>
         {
             ["taskId"] = $"TASK-{Guid.NewGuid():N}".ToUpperInvariant(),
-            ["taskType"] = BrokerNames.PortfolioRecomputeQueue,
+            ["taskType"] = taskType,
             ["portfolioId"] = portfolioId,
             ["requestedAt"] = requestedAt.ToUniversalTime().ToString("O").Replace("+00:00", "Z"),
         };
@@ -47,11 +89,11 @@ public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomput
 
         using var connection = factory.CreateConnection();
         using var channel = connection.CreateModel();
-        channel.QueueDeclare(_options.PortfolioRecomputeQueue, true, false, false, null);
+        channel.QueueDeclare(queueName, true, false, false, null);
         var properties = channel.CreateBasicProperties();
         properties.Persistent = true;
         properties.ContentType = "application/json";
-        channel.BasicPublish("", _options.PortfolioRecomputeQueue, properties, payload);
+        channel.BasicPublish("", queueName, properties, payload);
 
         return Task.CompletedTask;
     }

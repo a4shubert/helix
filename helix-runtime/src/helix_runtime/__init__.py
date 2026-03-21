@@ -10,9 +10,11 @@ from .broker_names import (
     POSITIONS_UPDATED_TOPIC,
     RABBITMQ_QUEUES,
     RISK_UPDATED_TOPIC,
+    TRADE_COMPUTE_QUEUE,
     TRADE_AMENDED_TOPIC,
     TRADE_CANCELLED_TOPIC,
     TRADE_CREATED_TOPIC,
+    TRADE_UPDATED_TOPIC,
 )
 from .config import KafkaConfig, RabbitMqConfig, load_kafka_config_from_env, load_rabbitmq_config_from_env
 from .consumers import KafkaTradeCreatedConsumer, RabbitMqTaskWorker
@@ -29,7 +31,7 @@ from .models import (
     TradeCreatedEvent,
     TradeProcessingResult,
 )
-from .processor import PortfolioRecomputeProcessor, TradeCreatedProcessor
+from .processor import PortfolioRecomputeProcessor, TradeComputeProcessor, TradeCreatedProcessor
 from .publisher import InMemoryEventPublisher, LoggingEventPublisher
 from .service import RuntimeService, RuntimeServiceConfig
 from .sqlite_store import SqliteHelixStore
@@ -56,6 +58,7 @@ __all__ = [
     "RabbitMqTaskWorker",
     "RabbitMqTaskPublisher",
     "RISK_UPDATED_TOPIC",
+    "TRADE_COMPUTE_QUEUE",
     "RuntimeService",
     "RuntimeServiceConfig",
     "SqliteHelixStore",
@@ -63,6 +66,8 @@ __all__ = [
     "TRADE_AMENDED_TOPIC",
     "TRADE_CANCELLED_TOPIC",
     "TRADE_CREATED_TOPIC",
+    "TRADE_UPDATED_TOPIC",
+    "TradeComputeProcessor",
     "TradeCreatedEvent",
     "TradeCreatedProcessor",
     "TradeProcessingResult",

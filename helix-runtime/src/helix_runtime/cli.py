@@ -355,6 +355,7 @@ def _replay_trades(args: argparse.Namespace) -> int:
     producer.close()
 
     queued_revalues: list[dict[str, object]] = []
+    queued_trade_computes: list[dict[str, object]] = []
     if not args.skip_rabbitmq:
         task_publisher = RabbitMqTaskPublisher(rabbitmq_config)
         for portfolio_id in sorted({portfolio_id for _, portfolio_id, _ in trades}):
@@ -370,6 +371,20 @@ def _replay_trades(args: argparse.Namespace) -> int:
                     task,
                 ).payload
             )
+        for trade_id, portfolio_id, _occurred_at in trades:
+            task = RabbitMqTask(
+                task_id=f"TASK-{uuid4().hex[:12].upper()}",
+                task_type=rabbitmq_config.trade_compute_queue,
+                portfolio_id=portfolio_id,
+                requested_at=datetime.now(UTC),
+                source_event_id=trade_id,
+            )
+            queued_trade_computes.append(
+                task_publisher.publish_task(
+                    rabbitmq_config.trade_compute_queue,
+                    task,
+                ).payload
+            )
 
     print(
         json.dumps(
@@ -381,6 +396,10 @@ def _replay_trades(args: argparse.Namespace) -> int:
                 if args.skip_rabbitmq
                 else rabbitmq_config.portfolio_recompute_queue,
                 "revalue_tasks": queued_revalues,
+                "trade_compute_queue": None
+                if args.skip_rabbitmq
+                else rabbitmq_config.trade_compute_queue,
+                "trade_compute_tasks": queued_trade_computes,
             },
             indent=2,
         )

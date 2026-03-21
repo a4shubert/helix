@@ -1,6 +1,7 @@
 """Core analytics library for the Helix platform."""
 
 from .analytics import (
+    compute_trade_notional,
     compute_portfolio_analytics,
     compute_portfolio_pnl,
     compute_portfolio_risk,
@@ -23,6 +24,7 @@ __all__ = [
     "PortfolioRiskSnapshot",
     "PositionSnapshot",
     "Trade",
+    "compute_trade_notional",
     "compute_portfolio_analytics",
     "compute_portfolio_pnl",
     "compute_portfolio_risk",

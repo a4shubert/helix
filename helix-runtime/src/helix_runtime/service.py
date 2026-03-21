@@ -48,15 +48,17 @@ class RuntimeService:
 
         try:
             while True:
-                for thread in threads:
-                    if not thread.is_alive():
-                        raise RuntimeError(f"Runtime worker thread '{thread.name}' stopped unexpectedly.")
                 try:
                     error = errors.get_nowait()
                 except queue.Empty:
-                    time.sleep(0.5)
-                    continue
-                raise error
+                    error = None
+                if error is not None:
+                    raise error
+
+                for thread in threads:
+                    if not thread.is_alive():
+                        raise RuntimeError(f"Runtime worker thread '{thread.name}' stopped unexpectedly.")
+                time.sleep(0.5)
         except KeyboardInterrupt:
             print("[helix-runtime] service stopping on keyboard interrupt")
 

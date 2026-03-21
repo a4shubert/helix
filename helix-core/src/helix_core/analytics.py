@@ -22,6 +22,11 @@ def mark_to_market(quantity: float, price: float) -> float:
     return quantity * price
 
 
+def compute_trade_notional(quantity: float, price: float) -> float:
+    """Return trade notional for a single execution."""
+    return quantity * price
+
+
 def signed_trade_quantity(trade: Trade) -> float:
     """Return trade quantity with BUY positive and SELL negative."""
     side = trade.side.upper()
@@ -94,14 +99,26 @@ def summarize_position_trades(trades: list[Trade]) -> tuple[float, float, float]
     return signed_quantity, average_cost, realized_pnl
 
 
+def _group_trades_by_instrument(trades: list[Trade]) -> dict[tuple[str, str], list[Trade]]:
+    grouped: dict[tuple[str, str], list[Trade]] = defaultdict(list)
+    for trade in trades:
+        grouped[(trade.portfolio_id, trade.instrument_id)].append(trade)
+    return grouped
+
+
+def _position_id_for_instrument(portfolio_id: str, instrument_id: str) -> str:
+    return f"{portfolio_id}-POS-{instrument_id}"
+
+
 def rebuild_positions(
     trades: list[Trade],
     market_inputs: dict[str, MarketInput],
 ) -> list[PositionSnapshot]:
-    """Aggregate trades into current live positions and mark them with market inputs."""
-    grouped: dict[tuple[str, str], list[Trade]] = defaultdict(list)
-    for trade in trades:
-        grouped[(trade.portfolio_id, trade.position_id)].append(trade)
+    """Aggregate trades into current live positions and mark them with market inputs.
+
+    Positions are netted per instrument (one live position row per ticker).
+    """
+    grouped = _group_trades_by_instrument(trades)
 
     positions: list[PositionSnapshot] = []
 
@@ -125,15 +142,16 @@ def rebuild_positions(
             total_signed_quantity
             * (market.market_price - average_cost)
         )
+        latest_book = next((trade.book for trade in reversed(ordered) if trade.book), None)
 
         positions.append(
             PositionSnapshot(
                 portfolio_id=first.portfolio_id,
-                position_id=first.position_id,
+                position_id=_position_id_for_instrument(first.portfolio_id, first.instrument_id),
                 instrument_id=first.instrument_id,
-                instrument_name=first.instrument_name,
-                asset_class=first.asset_class,
-                currency=first.currency,
+                instrument_name=last.instrument_name,
+                asset_class=last.asset_class,
+                currency=last.currency,
                 quantity=absolute_quantity,
                 direction=direction,
                 average_cost=average_cost,
@@ -143,7 +161,7 @@ def rebuild_positions(
                 notional=notional,
                 market_value=market_value,
                 unrealized_pnl=unrealized_pnl,
-                book=first.book,
+                book=latest_book,
             )
         )
 
@@ -224,9 +242,7 @@ def compute_portfolio_analytics(
 ) -> PortfolioAnalytics:
     """Rebuild positions and compute portfolio P&L and risk from trades plus market inputs."""
     valuation_time = valuation_ts or datetime.now(UTC)
-    grouped: dict[tuple[str, str], list[Trade]] = defaultdict(list)
-    for trade in trades:
-        grouped[(trade.portfolio_id, trade.position_id)].append(trade)
+    grouped = _group_trades_by_instrument(trades)
 
     computed_realized_pnl = 0.0
     for position_trades in grouped.values():

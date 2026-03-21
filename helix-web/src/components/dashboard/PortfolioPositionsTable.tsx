@@ -172,6 +172,13 @@ export function PortfolioPositionsTable({
     api.autoSizeColumns?.(colIds, true);
   }
 
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      handleFitColumnsToData();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [currentRows]);
+
   function handleDownloadCsv() {
     const api = gridApiRef.current;
     if (!api) {
@@ -439,6 +446,9 @@ export function PortfolioPositionsTable({
           rowIdField="positionId"
           onGridReady={(event: GridReadyEvent) => {
             gridApiRef.current = event.api;
+            requestAnimationFrame(() => {
+              handleFitColumnsToData();
+            });
           }}
           onSelectionChanged={(event: SelectionChangedEvent) => {
             setSelectedCount(event.api.getSelectedNodes().length);

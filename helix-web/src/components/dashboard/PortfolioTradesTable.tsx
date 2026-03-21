@@ -190,6 +190,13 @@ export function PortfolioTradesTable({
     api.autoSizeColumns?.(colIds, true);
   }
 
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => {
+      handleFitColumnsToData();
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [currentRows]);
+
   function handleDownloadCsv() {
     const api = gridApiRef.current;
     if (!api) {
@@ -417,6 +424,9 @@ export function PortfolioTradesTable({
           rowIdField="trade_id"
           onGridReady={(event: GridReadyEvent<PortfolioTrade>) => {
             gridApiRef.current = event.api;
+            requestAnimationFrame(() => {
+              handleFitColumnsToData();
+            });
           }}
           onSelectionChanged={(event: SelectionChangedEvent<PortfolioTrade>) => {
             const selectedRows = event.api.getSelectedRows();

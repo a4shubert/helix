@@ -96,7 +96,12 @@ class SqliteHelixStore:
         return [self._row_to_trade(row) for row in rows]
 
     def get_market_inputs_for_portfolio(self, portfolio_id: str) -> dict[str, MarketInput]:
-        trades = self.get_portfolio_trades(portfolio_id, statuses=("accepted", "processed"))
+        # Keep this aligned with recompute processing, which can mark the triggering trade
+        # as "processing" before analytics are loaded.
+        trades = self.get_portfolio_trades(
+            portfolio_id,
+            statuses=("accepted", "processed", "processing"),
+        )
         instruments = {trade.instrument_id: trade for trade in trades}
         if not instruments:
             return {}

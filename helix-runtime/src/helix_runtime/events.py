@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from .broker_names import TRADE_CREATED_TOPIC
+from .broker_names import TRADE_CREATED_TOPIC, TRADE_UPDATED_TOPIC
 from .config import KafkaConfig
 from .models import PortfolioUpdateEvent, TradeCreatedEvent
 
@@ -69,6 +69,26 @@ def build_trade_created_payload(event: TradeCreatedEvent) -> dict[str, object]:
         "tradeId": event.trade_id,
         "portfolioId": event.portfolio_id,
         "timestamp": _isoformat_utc(event.occurred_at),
+    }
+
+
+def build_trade_updated_payload(
+    *,
+    trade_id: str,
+    portfolio_id: str,
+    notional: float,
+    status: str,
+    occurred_at: datetime,
+) -> dict[str, object]:
+    return {
+        "eventId": f"EVT-{uuid4().hex[:12].upper()}",
+        "eventType": TRADE_UPDATED_TOPIC,
+        "tradeId": trade_id,
+        "portfolioId": portfolio_id,
+        "snapshotId": trade_id,
+        "status": status,
+        "notional": notional,
+        "timestamp": _isoformat_utc(occurred_at),
     }
 
 

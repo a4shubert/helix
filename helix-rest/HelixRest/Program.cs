@@ -60,6 +60,8 @@ builder.Services.Configure<HelixRabbitMqOptions>(options =>
     options.VirtualHost = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_VHOST") ?? "/";
     options.PortfolioRecomputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_RECOMPUTE")
         ?? BrokerNames.PortfolioRecomputeQueue;
+    options.TradeComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_TRADE_COMPUTE")
+        ?? BrokerNames.TradeComputeQueue;
 });
 builder.Services.AddSingleton<UpdateStreamBroadcaster>();
 builder.Services.AddSingleton<ITradeCreatedPublisher, KafkaTradeCreatedPublisher>();
@@ -185,7 +187,7 @@ app.MapPost("/api/portfolios/{portfolioId}/recompute", async (
     }
 
     var requestedAt = DateTime.UtcNow;
-    await taskPublisher.PublishAsync(portfolioId, null, requestedAt, cancellationToken);
+    await taskPublisher.PublishPortfolioRecomputeAsync(portfolioId, null, requestedAt, cancellationToken);
 
     return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
     {
@@ -196,7 +198,11 @@ app.MapPost("/api/portfolios/{portfolioId}/recompute", async (
     });
 }).WithTags("portfolio");
 
-app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixContext db) =>
+app.MapGet("/api/portfolio", async (
+    string portfolioId,
+    DateTime? asOf,
+    HelixContext db,
+    CancellationToken cancellationToken) =>
 {
     var portfolio = await db.Portfolios
         .AsNoTracking()
@@ -207,17 +213,10 @@ app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixCon
         return Results.NotFound(new { message = $"Portfolio '{portfolioId}' not found." });
     }
 
-    var query = db.PositionSnapshots
-        .AsNoTracking()
-        .Where(x => x.PortfolioId == portfolioId);
+    var snapshot = await LoadLatestPositionSnapshotAsync(db, portfolioId, asOf, cancellationToken);
+    var effectiveAsOf = snapshot.EffectiveAsOf;
 
-    var effectiveAsOf = asOf.HasValue
-        ? await query
-            .Where(x => x.AsOfTs <= asOf.Value)
-            .MaxAsync(x => (DateTime?)x.AsOfTs)
-        : await query.MaxAsync(x => (DateTime?)x.AsOfTs);
-
-    if (!effectiveAsOf.HasValue)
+    if (string.IsNullOrWhiteSpace(effectiveAsOf))
     {
         return Results.Ok(new
         {
@@ -225,15 +224,12 @@ app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixCon
             name = portfolio.Name,
             status = portfolio.Status,
             createdAt = portfolio.CreatedAt,
-            asOf = (DateTime?)null,
+            asOf = (string?)null,
             positions = Array.Empty<object>()
         });
     }
 
-    query = query.Where(x => x.AsOfTs == effectiveAsOf.Value);
-
-    var positions = await query
-        .OrderBy(x => x.PositionId)
+    var positions = snapshot.Rows
         .Select(x => new
         {
             positionId = x.PositionId,
@@ -251,7 +247,7 @@ app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixCon
             marketValue = x.MarketValue,
             book = x.Book,
         })
-        .ToListAsync();
+        .ToList();
 
     return Results.Ok(new
     {
@@ -259,7 +255,7 @@ app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixCon
         name = portfolio.Name,
         status = portfolio.Status,
         createdAt = portfolio.CreatedAt,
-        asOf = effectiveAsOf.Value,
+        asOf = effectiveAsOf,
         positions
     });
 }).WithTags("portfolio");
@@ -374,6 +370,31 @@ app.MapGet("/api/trade-form-options", async (HelixContext db) =>
         books
     });
 }).WithTags("trades");
+
+app.MapGet("/api/market-data", async (HelixContext db, CancellationToken cancellationToken) =>
+{
+    var rows = await LoadLatestMarketDataRowsAsync(db, cancellationToken);
+    var asOf = rows
+        .Select(x => x.UpdatedAt)
+        .Where(x => !string.IsNullOrWhiteSpace(x))
+        .OrderByDescending(x => x)
+        .FirstOrDefault();
+
+    return Results.Ok(new
+    {
+        asOf = asOf ?? string.Empty,
+        count = rows.Count,
+        rows = rows.Select(x => new
+        {
+            instrumentId = x.InstrumentId,
+            instrumentName = x.InstrumentName,
+            assetClass = x.AssetClass,
+            currency = x.Currency,
+            price = x.Price,
+            updatedAt = x.UpdatedAt ?? string.Empty
+        })
+    });
+}).WithTags("market-data");
 
 app.MapGet("/api/pnl", async (string portfolioId, DateTime? asOf, HelixContext db, CancellationToken cancellationToken) =>
 {
@@ -560,6 +581,95 @@ static async Task<SnapshotRow?> LoadLatestSnapshotRowAsync(
     );
 }
 
+static async Task<PositionSnapshotQueryResult> LoadLatestPositionSnapshotAsync(
+    HelixContext db,
+    string portfolioId,
+    DateTime? asOf,
+    CancellationToken cancellationToken)
+{
+    await using var connection = db.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+    {
+        await connection.OpenAsync(cancellationToken);
+    }
+
+    string? effectiveAsOf;
+    await using (var command = connection.CreateCommand())
+    {
+        command.CommandText = """
+            SELECT MAX(as_of_ts)
+            FROM position
+            WHERE portfolio_id = @portfolioId
+              AND (@asOf IS NULL OR as_of_ts <= @asOf)
+            """;
+
+        var portfolioParameter = command.CreateParameter();
+        portfolioParameter.ParameterName = "@portfolioId";
+        portfolioParameter.Value = portfolioId;
+        command.Parameters.Add(portfolioParameter);
+
+        var asOfParameter = command.CreateParameter();
+        asOfParameter.ParameterName = "@asOf";
+        asOfParameter.Value = asOf?.ToUniversalTime().ToString("O").Replace("+00:00", "Z") ?? (object)DBNull.Value;
+        command.Parameters.Add(asOfParameter);
+
+        var scalar = await command.ExecuteScalarAsync(cancellationToken);
+        effectiveAsOf = scalar is null || scalar is DBNull ? null : scalar.ToString();
+    }
+
+    if (string.IsNullOrWhiteSpace(effectiveAsOf))
+    {
+        return new PositionSnapshotQueryResult(null, []);
+    }
+
+    var rows = new List<PositionSnapshotRow>();
+    await using (var command = connection.CreateCommand())
+    {
+        command.CommandText = """
+            SELECT position_id, instrument_id, instrument_name, asset_class, currency,
+                   quantity, direction, average_cost, last_update_ts, market_price,
+                   market_data_ts, notional, market_value, book
+            FROM position
+            WHERE portfolio_id = @portfolioId
+              AND as_of_ts = @asOf
+            ORDER BY last_update_ts DESC, position_id
+            """;
+
+        var portfolioParameter = command.CreateParameter();
+        portfolioParameter.ParameterName = "@portfolioId";
+        portfolioParameter.Value = portfolioId;
+        command.Parameters.Add(portfolioParameter);
+
+        var asOfParameter = command.CreateParameter();
+        asOfParameter.ParameterName = "@asOf";
+        asOfParameter.Value = effectiveAsOf;
+        command.Parameters.Add(asOfParameter);
+
+        await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+        while (await reader.ReadAsync(cancellationToken))
+        {
+            rows.Add(new PositionSnapshotRow(
+                PositionId: reader["position_id"]?.ToString() ?? string.Empty,
+                InstrumentId: reader["instrument_id"]?.ToString() ?? string.Empty,
+                InstrumentName: reader["instrument_name"]?.ToString() ?? string.Empty,
+                AssetClass: reader["asset_class"]?.ToString() ?? string.Empty,
+                Currency: reader["currency"]?.ToString() ?? string.Empty,
+                Quantity: reader["quantity"] is DBNull ? 0.0 : Convert.ToDouble(reader["quantity"]),
+                Direction: reader["direction"]?.ToString() ?? "LONG",
+                AverageCost: reader["average_cost"] is DBNull ? 0.0 : Convert.ToDouble(reader["average_cost"]),
+                LastUpdateTs: reader["last_update_ts"]?.ToString() ?? string.Empty,
+                MarketPrice: reader["market_price"] is DBNull ? null : Convert.ToDouble(reader["market_price"]),
+                MarketDataTs: reader["market_data_ts"]?.ToString(),
+                Notional: reader["notional"] is DBNull ? null : Convert.ToDouble(reader["notional"]),
+                MarketValue: reader["market_value"] is DBNull ? null : Convert.ToDouble(reader["market_value"]),
+                Book: reader["book"]?.ToString()
+            ));
+        }
+    }
+
+    return new PositionSnapshotQueryResult(effectiveAsOf, rows);
+}
+
 static void EnsureAllowedSnapshotTable(string tableName)
 {
     if (!string.Equals(tableName, "pnl", StringComparison.OrdinalIgnoreCase)
@@ -580,6 +690,43 @@ static string ToMetricLabel(string metricKey)
             _ => char.ToUpperInvariant(word[0]) + word[1..].ToLowerInvariant()
         });
     return string.Join(" ", words);
+}
+
+static async Task<List<MarketDataRow>> LoadLatestMarketDataRowsAsync(
+    HelixContext db,
+    CancellationToken cancellationToken)
+{
+    var rows = new List<MarketDataRow>();
+    await using var connection = db.Database.GetDbConnection();
+    if (connection.State != System.Data.ConnectionState.Open)
+    {
+        await connection.OpenAsync(cancellationToken);
+    }
+
+    await using var command = connection.CreateCommand();
+    command.CommandText = """
+        SELECT i.instrument_id, i.instrument_name, i.asset_class, i.currency,
+               m.price, m.updated_at
+        FROM instrument i
+        LEFT JOIN market_data m ON m.instrument_id = i.instrument_id
+        WHERE i.active = 1
+        ORDER BY i.asset_class, i.instrument_id
+        """;
+
+    await using var reader = await command.ExecuteReaderAsync(cancellationToken);
+    while (await reader.ReadAsync(cancellationToken))
+    {
+        rows.Add(new MarketDataRow(
+            InstrumentId: reader["instrument_id"]?.ToString() ?? string.Empty,
+            InstrumentName: reader["instrument_name"]?.ToString() ?? string.Empty,
+            AssetClass: reader["asset_class"]?.ToString() ?? string.Empty,
+            Currency: reader["currency"]?.ToString() ?? string.Empty,
+            Price: reader["price"] is DBNull ? null : Convert.ToDouble(reader["price"]),
+            UpdatedAt: reader["updated_at"]?.ToString()
+        ));
+    }
+
+    return rows;
 }
 
 static async Task<InstrumentEntity?> LoadValidInstrumentAsync(
@@ -662,7 +809,8 @@ app.MapPost("/api/trades", async (
     db.Trades.Add(entity);
     await db.SaveChangesAsync(cancellationToken);
     await publisher.PublishAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-    await taskPublisher.PublishAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+    await taskPublisher.PublishPortfolioRecomputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+    await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
     return Results.Ok(new
     {
@@ -724,7 +872,8 @@ app.MapPut("/api/trades/{tradeId}", async (
 
     await db.SaveChangesAsync(cancellationToken);
     await publisher.PublishAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-    await taskPublisher.PublishAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+    await taskPublisher.PublishPortfolioRecomputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+    await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
     return Results.Ok(new
     {
@@ -758,4 +907,35 @@ sealed record SnapshotRow(
     string MarketDataAsOfTs,
     string PositionAsOfTs,
     Dictionary<string, double> MetricValues
+);
+
+sealed record PositionSnapshotQueryResult(
+    string? EffectiveAsOf,
+    IReadOnlyList<PositionSnapshotRow> Rows
+);
+
+sealed record PositionSnapshotRow(
+    string PositionId,
+    string InstrumentId,
+    string InstrumentName,
+    string AssetClass,
+    string Currency,
+    double Quantity,
+    string Direction,
+    double AverageCost,
+    string LastUpdateTs,
+    double? MarketPrice,
+    string? MarketDataTs,
+    double? Notional,
+    double? MarketValue,
+    string? Book
+);
+
+sealed record MarketDataRow(
+    string InstrumentId,
+    string InstrumentName,
+    string AssetClass,
+    string Currency,
+    double? Price,
+    string? UpdatedAt
 );

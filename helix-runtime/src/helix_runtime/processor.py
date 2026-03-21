@@ -4,9 +4,10 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from helix_core import compute_portfolio_analytics
+from helix_core import compute_portfolio_analytics, compute_trade_notional
 
-from .events import RabbitMqTask
+from .broker_names import TRADE_UPDATED_TOPIC
+from .events import RabbitMqTask, build_trade_updated_payload
 from .models import (
     PersistedAnalytics,
     PortfolioUpdateEvent,
@@ -119,6 +120,50 @@ class PortfolioRecomputeProcessor:
             persisted=persisted,
             published_events=published_events,
         )
+
+
+class TradeComputeProcessor:
+    """Compute trade notional and publish trade.updated."""
+
+    def __init__(self, store: StoreGateway, publisher: EventPublisher) -> None:
+        self._store = store
+        self._publisher = publisher
+
+    def process(self, task: RabbitMqTask) -> dict[str, object]:
+        if not task.source_event_id:
+            raise ValueError("trade.compute task requires sourceEventId (trade_id).")
+
+        trade = self._store.get_trade(task.source_event_id)
+        if trade.portfolio_id != task.portfolio_id:
+            raise ValueError(
+                f"Trade '{trade.trade_id}' belongs to portfolio "
+                f"'{trade.portfolio_id}', not '{task.portfolio_id}'."
+            )
+
+        notional = compute_trade_notional(trade.quantity, trade.price)
+        self._store.update_trade_status(
+            trade.trade_id,
+            "processed",
+            updated_at=task.requested_at,
+            notional=notional,
+        )
+
+        payload = build_trade_updated_payload(
+            trade_id=trade.trade_id,
+            portfolio_id=trade.portfolio_id,
+            notional=notional,
+            status="processed",
+            occurred_at=task.requested_at,
+        )
+        self._publisher.publish(TRADE_UPDATED_TOPIC, payload)
+
+        return {
+            "task_id": task.task_id,
+            "task_type": task.task_type,
+            "portfolio_id": task.portfolio_id,
+            "trade_id": trade.trade_id,
+            "notional": notional,
+        }
 
 
 def _publish_updates(publisher: EventPublisher, persisted: PersistedAnalytics) -> list[PortfolioUpdateEvent]:

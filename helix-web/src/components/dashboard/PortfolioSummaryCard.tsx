@@ -12,7 +12,7 @@ function formatAsOfTimestamp(timestamp?: string | null): string | undefined {
     return undefined;
   }
 
-  return `As of ${new Intl.DateTimeFormat("en-GB", {
+  return `(${new Intl.DateTimeFormat("en-GB", {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
@@ -21,7 +21,7 @@ function formatAsOfTimestamp(timestamp?: string | null): string | undefined {
     second: "2-digit",
     hour12: false,
     timeZone: "UTC",
-  }).format(date)} UTC`;
+  }).format(date).replaceAll(",", "")})`;
 }
 
 function MetricRows({ metrics }: { metrics: MetricValue[] }) {
