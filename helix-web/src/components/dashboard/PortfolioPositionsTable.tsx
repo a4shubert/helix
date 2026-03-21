@@ -21,14 +21,8 @@ const formatDecimalCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
   typeof params.value === "number" ? formatDecimal(params.value) : (params.value ?? "");
 
 const columnDefs: ColDef[] = [
-  {
-    headerName: "Portfolio ID",
-    minWidth: 130,
-    pinned: "left",
-    valueGetter: (params) => params.context.portfolioId,
-  },
-  { field: "positionId", headerName: "Position ID", minWidth: 130, pinned: "left" },
-  { field: "instrumentId", headerName: "Instrument ID", minWidth: 130, pinned: "left" },
+  { field: "positionId", headerName: "Position ID", minWidth: 130 },
+  { field: "instrumentId", headerName: "Instrument ID", minWidth: 130 },
   { field: "instrumentName", headerName: "Instrument Name", minWidth: 200 },
   { field: "assetClass", headerName: "Asset Class", minWidth: 130 },
   { field: "currency", headerName: "Currency", minWidth: 110 },
@@ -158,6 +152,17 @@ export function PortfolioPositionsTable({
     api.autoSizeColumns?.(colIds, true);
   }
 
+  function handleDownloadCsv() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+
+    api.exportDataAsCsv({
+      fileName: `${portfolio.portfolioId.toLowerCase()}-positions.csv`,
+    });
+  }
+
   function handleResetFilters() {
     const api = gridApiRef.current;
     if (!api) {
@@ -196,7 +201,7 @@ export function PortfolioPositionsTable({
     <section className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 p-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
       <div className="mb-3 flex flex-col gap-2 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-          <div className="text-xl font-semibold uppercase tracking-[0.18em] text-white">
+          <div className="text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
             Positions
           </div>
           <div className="text-lg font-medium tracking-[0.08em] text-white/90">
@@ -215,16 +220,24 @@ export function PortfolioPositionsTable({
           >
             Fit Columns
           </button>
-          <button
-            type="button"
-            onClick={handleFitColumnsToData}
-            className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
-            title="Auto-size columns to content"
-          >
-            Fit Data
-          </button>
-          <HelixHelpTooltip items={helpItems} />
-        </div>
+        <button
+          type="button"
+          onClick={handleFitColumnsToData}
+          className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
+          title="Auto-size columns to content"
+        >
+          Fit Data
+        </button>
+        <button
+          type="button"
+          onClick={handleDownloadCsv}
+          className="inline-flex shrink-0 items-center justify-center rounded-md border border-transparent px-2 py-1 text-sm text-[color:var(--color-muted)] hover:border-[color:var(--color-border)] hover:text-[color:var(--color-accent)]"
+          title="Download table as CSV"
+        >
+          Download CSV
+        </button>
+        <HelixHelpTooltip items={helpItems} />
+      </div>
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="mr-1 text-sm text-[color:var(--color-muted)]">
@@ -404,7 +417,7 @@ export function PortfolioPositionsTable({
         </div>
       </div>
 
-      <div className="h-[460px] w-full">
+      <div className="h-[620px] w-full">
         <HelixAgTable
           rowData={currentRows}
           columnDefs={columnDefs}
@@ -429,7 +442,6 @@ export function PortfolioPositionsTable({
             setCurrentPage(1);
           }}
           gridOptions={{
-            context: { portfolioId: portfolio.portfolioId },
             rowSelection: {
               mode: "multiRow",
               enableSelectionWithoutKeys: true,

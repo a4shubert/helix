@@ -8,7 +8,7 @@ export function PortfolioPnLCard({
 }) {
   return (
     <section className="rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-6 py-5 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
-      <div className="mb-4 text-xl font-semibold uppercase tracking-[0.18em] text-white">
+      <div className="mb-4 text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
         P&amp;L Summary
       </div>
       <div className="space-y-4">
