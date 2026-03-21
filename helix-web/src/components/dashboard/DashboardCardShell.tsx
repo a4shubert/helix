@@ -32,11 +32,21 @@ export function DashboardCardShell({
         collapsed ? "shrink-0 px-6 py-5" : `flex flex-col px-5 py-5 ${expandedClassName ?? ""}`,
       ].join(" ")}
     >
-      <div className="flex items-start justify-between gap-4">
+      <div className="flex items-start gap-4">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
+          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-2xl font-light leading-none text-white transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
+          title={collapsed ? "Expand card" : "Collapse card"}
+        >
+          {collapsed ? "+" : "-"}
+        </button>
+
         <div
           className={[
-            "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2",
-            centerTitle ? "flex-1 justify-center text-center" : "",
+            "flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2",
+            centerTitle ? "justify-center text-center" : "",
           ].join(" ")}
         >
           {!hideTitle ? (
@@ -63,16 +73,6 @@ export function DashboardCardShell({
             <div className="text-lg font-medium tracking-[0.08em] text-white/90">{subtitle}</div>
           ) : null}
         </div>
-
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
-          className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-2xl font-light leading-none text-white transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
-          title={collapsed ? "Expand card" : "Collapse card"}
-        >
-          {collapsed ? "+" : "-"}
-        </button>
       </div>
 
       {!collapsed ? children : null}

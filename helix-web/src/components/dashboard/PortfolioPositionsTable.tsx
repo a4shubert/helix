@@ -157,8 +157,11 @@ export function PortfolioPositionsTable({
     if (!api) {
       return;
     }
-    const cols = api.getAllDisplayedColumns();
+    const cols = api.getAllDisplayedColumns?.() ?? [];
     const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
+    if (colIds.length === 0) {
+      return;
+    }
     api.autoSizeColumns?.(colIds, false);
   }
 
@@ -167,8 +170,11 @@ export function PortfolioPositionsTable({
     if (!api) {
       return;
     }
-    const cols = api.getAllDisplayedColumns();
+    const cols = api.getAllDisplayedColumns?.() ?? [];
     const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
+    if (colIds.length === 0) {
+      return;
+    }
     api.autoSizeColumns?.(colIds, true);
   }
 
