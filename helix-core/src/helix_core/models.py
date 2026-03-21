@@ -21,7 +21,6 @@ class Trade:
     trade_timestamp: datetime
     settlement_date: date | None
     book: str | None
-    desk: str | None
     status: str
     version: int
 
@@ -52,7 +51,6 @@ class PositionSnapshot:
     market_value: float
     unrealized_pnl: float
     book: str | None
-    desk: str | None
 
 
 @dataclass(frozen=True)

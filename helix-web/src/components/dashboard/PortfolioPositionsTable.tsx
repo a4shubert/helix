@@ -36,7 +36,6 @@ function normalizePosition(
     notional: Number(raw.notional ?? 0),
     marketValue: Number(raw.marketValue ?? raw.market_value ?? 0),
     book: String(raw.book ?? ""),
-    desk: String(raw.desk ?? ""),
   };
 }
 
@@ -84,7 +83,6 @@ const columnDefs: ColDef[] = [
   },
   { field: "marketDataTs", headerName: "Market Data Timestamp", minWidth: 210 },
   { field: "book", headerName: "Book", minWidth: 170 },
-  { field: "desk", headerName: "Desk", minWidth: 130 },
 ];
 
 const defaultColDef: ColDef = {

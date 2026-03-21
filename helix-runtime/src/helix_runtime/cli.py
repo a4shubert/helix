@@ -284,14 +284,14 @@ def _reset_live_snapshots(db_path: Path) -> dict[str, int]:
     with sqlite3.connect(db_path) as connection:
         connection.execute("PRAGMA foreign_keys = ON;")
         counts = {
-            "position_snapshot": connection.execute("SELECT COUNT(*) FROM position_snapshot").fetchone()[0],
-            "pnl_snapshot": connection.execute("SELECT COUNT(*) FROM pnl_snapshot").fetchone()[0],
-            "risk_snapshot": connection.execute("SELECT COUNT(*) FROM risk_snapshot").fetchone()[0],
+            "position": connection.execute("SELECT COUNT(*) FROM position").fetchone()[0],
+            "pnl": connection.execute("SELECT COUNT(*) FROM pnl").fetchone()[0],
+            "risk": connection.execute("SELECT COUNT(*) FROM risk").fetchone()[0],
         }
 
-        connection.execute("DELETE FROM position_snapshot")
-        connection.execute("DELETE FROM pnl_snapshot")
-        connection.execute("DELETE FROM risk_snapshot")
+        connection.execute("DELETE FROM position")
+        connection.execute("DELETE FROM pnl")
+        connection.execute("DELETE FROM risk")
         connection.execute(
             """
             UPDATE trades

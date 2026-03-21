@@ -14,11 +14,9 @@ from .models import PersistedAnalytics
 
 
 DEFAULT_RISK_WEIGHT_BY_ASSET_CLASS = {
-    "Rates": 0.08,
-    "FX": 0.12,
     "Equity": 0.25,
+    "Fixed Income": 0.12,
     "Commodity": 0.30,
-    "Credit": 0.18,
 }
 
 
@@ -108,17 +106,16 @@ class SqliteHelixStore:
         with self._connect() as connection:
             market_rows = connection.execute(
                 f"""
-                SELECT instrument_id, field_name, field_value, as_of_ts
-                FROM market_data_snapshot
+                SELECT instrument_id, price, updated_at
+                FROM market_data
                 WHERE instrument_id IN ({placeholders})
-                ORDER BY as_of_ts DESC
                 """,
                 snapshot_ids,
             ).fetchall()
             position_rows = connection.execute(
                 f"""
                 SELECT instrument_id, market_price, market_data_ts, as_of_ts
-                FROM position_snapshot
+                FROM position
                 WHERE portfolio_id = ?
                   AND instrument_id IN ({", ".join("?" for _ in instruments)})
                 ORDER BY as_of_ts DESC, last_update_ts DESC
@@ -126,14 +123,12 @@ class SqliteHelixStore:
                 [portfolio_id, *sorted(instruments)],
             ).fetchall()
 
-        latest_fields: dict[str, dict[str, float]] = defaultdict(dict)
+        latest_market_price: dict[str, float] = {}
         latest_market_ts: dict[str, datetime] = {}
         for row in market_rows:
             instrument_id = str(row["instrument_id"])
-            field_name = str(row["field_name"])
-            if field_name not in latest_fields[instrument_id]:
-                latest_fields[instrument_id][field_name] = float(row["field_value"])
-            latest_market_ts.setdefault(instrument_id, _parse_datetime(row["as_of_ts"]))
+            latest_market_price[instrument_id] = float(row["price"])
+            latest_market_ts[instrument_id] = _parse_datetime(row["updated_at"])
 
         latest_position_price: dict[str, float] = {}
         latest_position_ts: dict[str, datetime | None] = {}
@@ -148,16 +143,12 @@ class SqliteHelixStore:
 
         market_inputs: dict[str, MarketInput] = {}
         for instrument_id, trade in instruments.items():
-            fields = latest_fields.get(instrument_id, {})
-            market_price = fields.get(
-                "last_price",
-                fields.get("price", latest_position_price.get(instrument_id, trade.price)),
+            market_price = latest_market_price.get(
+                instrument_id,
+                latest_position_price.get(instrument_id, trade.price),
             )
 
-            risk_weight = fields.get(
-                "vol_1m",
-                DEFAULT_RISK_WEIGHT_BY_ASSET_CLASS.get(trade.asset_class, 0.20),
-            )
+            risk_weight = DEFAULT_RISK_WEIGHT_BY_ASSET_CLASS.get(trade.asset_class, 0.20)
             market_inputs[instrument_id] = MarketInput(
                 instrument_id=instrument_id,
                 market_price=market_price,
@@ -187,13 +178,13 @@ class SqliteHelixStore:
                 position_snapshot_ids.append(snapshot_id)
                 connection.execute(
                     """
-                    INSERT OR REPLACE INTO position_snapshot (
+                    INSERT OR REPLACE INTO position (
                       snapshot_id, portfolio_id, position_id, instrument_id, instrument_name,
                       asset_class, currency, quantity, direction, average_cost,
                       last_update_ts, market_price, market_data_ts, notional,
-                      market_value, book, desk, as_of_ts, source_event_id
+                      market_value, book, as_of_ts, source_event_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         snapshot_id,
@@ -212,7 +203,6 @@ class SqliteHelixStore:
                         position.notional,
                         position.market_value,
                         position.book,
-                        position.desk,
                         _isoformat_utc(valuation_ts),
                         source_event_id,
                     ),
@@ -221,7 +211,7 @@ class SqliteHelixStore:
             pnl_snapshot_id = f"PNL-{analytics.portfolio_id}-{suffix}"
             connection.execute(
                 """
-                INSERT OR REPLACE INTO pnl_snapshot (
+                INSERT OR REPLACE INTO pnl (
                   snapshot_id, portfolio_id, total_pnl, realized_pnl, unrealized_pnl,
                   valuation_ts, market_data_as_of_ts, position_as_of_ts
                 )
@@ -242,7 +232,7 @@ class SqliteHelixStore:
             risk_snapshot_id = f"RISK-{analytics.portfolio_id}-{suffix}"
             connection.execute(
                 """
-                INSERT OR REPLACE INTO risk_snapshot (
+                INSERT OR REPLACE INTO risk (
                   snapshot_id, portfolio_id, delta, gamma, var_95, stress_loss,
                   valuation_ts, market_data_as_of_ts, position_as_of_ts
                 )
@@ -306,7 +296,6 @@ class SqliteHelixStore:
             trade_timestamp=_parse_datetime(row["trade_timestamp"]),
             settlement_date=_parse_date(row["settlement_date"]),
             book=row["book"],
-            desk=row["desk"],
             status=str(row["status"]),
             version=int(row["version"]),
         )

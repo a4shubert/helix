@@ -214,7 +214,6 @@ app.MapGet("/api/portfolio", async (string portfolioId, DateTime? asOf, HelixCon
             notional = x.Notional,
             marketValue = x.MarketValue,
             book = x.Book,
-            desk = x.Desk
         })
         .ToListAsync();
 
@@ -273,7 +272,6 @@ app.MapGet("/api/trades", async (
             tradeTimestamp = x.TradeTimestamp,
             settlementDate = x.SettlementDate,
             book = x.Book,
-            desk = x.Desk,
             status = x.Status,
             version = x.Version,
             createdAt = x.CreatedAt,
@@ -310,17 +308,10 @@ app.MapGet("/api/trade-form-options", async (HelixContext db) =>
         .Select(x => x.Name)
         .ToListAsync();
 
-    var desks = await db.Desks
-        .AsNoTracking()
-        .OrderBy(x => x.Name)
-        .Select(x => x.Name)
-        .ToListAsync();
-
     return Results.Ok(new
     {
         instruments,
-        books,
-        desks
+        books
     });
 }).WithTags("trades");
 
@@ -429,7 +420,6 @@ static async Task<InstrumentEntity?> LoadValidInstrumentAsync(
 static async Task<IResult?> ValidateReferenceSelectionsAsync(
     HelixContext db,
     string? book,
-    string? desk,
     CancellationToken cancellationToken)
 {
     if (!string.IsNullOrWhiteSpace(book))
@@ -438,15 +428,6 @@ static async Task<IResult?> ValidateReferenceSelectionsAsync(
         if (!bookExists)
         {
             return Results.BadRequest(new { message = $"Book '{book}' does not exist." });
-        }
-    }
-
-    if (!string.IsNullOrWhiteSpace(desk))
-    {
-        var deskExists = await db.Desks.AnyAsync(x => x.Name == desk, cancellationToken);
-        if (!deskExists)
-        {
-            return Results.BadRequest(new { message = $"Desk '{desk}' does not exist." });
         }
     }
 
@@ -472,7 +453,7 @@ app.MapPost("/api/trades", async (
     }
 
     var validationError = await ValidateReferenceSelectionsAsync(
-        db, request.Book, request.Desk, cancellationToken);
+        db, request.Book, cancellationToken);
     if (validationError is not null)
     {
         return validationError;
@@ -498,7 +479,6 @@ app.MapPost("/api/trades", async (
         TradeTimestamp = submittedAt,
         SettlementDate = request.SettlementDate,
         Book = request.Book,
-        Desk = request.Desk,
         Status = "accepted",
         Version = request.Version ?? 1,
         CreatedAt = submittedAt,
@@ -544,7 +524,7 @@ app.MapPut("/api/trades/{tradeId}", async (
     }
 
     var validationError = await ValidateReferenceSelectionsAsync(
-        db, request.Book, request.Desk, cancellationToken);
+        db, request.Book, cancellationToken);
     if (validationError is not null)
     {
         return validationError;
@@ -562,7 +542,6 @@ app.MapPut("/api/trades/{tradeId}", async (
     existingTrade.TradeTimestamp = submittedAt;
     existingTrade.SettlementDate = request.SettlementDate;
     existingTrade.Book = request.Book;
-    existingTrade.Desk = request.Desk;
     existingTrade.Status = "accepted";
     existingTrade.Version = request.Version ?? (existingTrade.Version + 1);
     existingTrade.UpdatedAt = submittedAt;
@@ -592,6 +571,5 @@ public sealed record CreateTradeRequest(
     double Price,
     DateOnly? SettlementDate,
     string? Book,
-    string? Desk,
     int? Version
 );

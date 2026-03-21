@@ -46,7 +46,6 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
             Active = true
         });
         db.Books.Add(new BookEntity { Name = "Equity" });
-        db.Desks.Add(new DeskEntity { Name = "Equities" });
         db.SaveChanges();
     }
 
@@ -78,8 +77,7 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
             quantity = 100.0,
             price = 200.0,
             settlementDate = "2026-03-24",
-            book = "Equity",
-            desk = "Equities"
+            book = "Equity"
         });
 
         response.EnsureSuccessStatusCode();

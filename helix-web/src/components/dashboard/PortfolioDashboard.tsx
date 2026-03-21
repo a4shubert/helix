@@ -22,8 +22,6 @@ import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTabl
 import type { MetricValue, PortfolioResponse } from "@/lib/mock/portfolio";
 import type { PortfolioTrade } from "@/lib/mock/trades";
 
-type MockPortfolioKey = "PF-001" | "PF-002" | "PF-003";
-
 const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
   portfolioId,
   asOf: "",
@@ -56,7 +54,7 @@ function buildRiskMetrics(snapshot?: RiskSnapshotResponse): MetricValue[] {
 }
 
 export function PortfolioDashboard() {
-  const [selectedPortfolio, setSelectedPortfolio] = useState<MockPortfolioKey>("PF-001");
+  const [selectedPortfolio, setSelectedPortfolio] = useState<string>("PF-EQ");
   const [portfolioItems, setPortfolioItems] = useState<PortfolioListItem[]>([]);
   const [collapsedCards, setCollapsedCards] = useState({
     summary: false,
@@ -74,7 +72,7 @@ export function PortfolioDashboard() {
   const riskMetrics = buildRiskMetrics(riskByPortfolio[selectedPortfolio]);
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
 
-  async function refreshPortfolio(portfolioId: MockPortfolioKey) {
+  async function refreshPortfolio(portfolioId: string) {
     setIsLoading(true);
     setError(null);
 
@@ -129,9 +127,9 @@ export function PortfolioDashboard() {
         }
 
         setSelectedPortfolio((current) =>
-          items.some((item) => item.portfolioId === current)
-            ? current
-            : (items[0].portfolioId as MockPortfolioKey),
+            items.some((item) => item.portfolioId === current)
+              ? current
+            : items[0].portfolioId,
         );
       })
       .catch((err) => {
@@ -175,7 +173,7 @@ export function PortfolioDashboard() {
     <section className="flex h-full min-h-full w-full gap-6">
       <PortfolioSidebar
         portfolios={portfolioItems.map((item) => ({
-          key: item.portfolioId as MockPortfolioKey,
+          key: item.portfolioId,
           label: item.name,
           description: item.portfolioId,
         }))}

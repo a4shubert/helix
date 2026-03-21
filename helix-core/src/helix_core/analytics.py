@@ -144,7 +144,6 @@ def rebuild_positions(
                 market_value=market_value,
                 unrealized_pnl=unrealized_pnl,
                 book=first.book,
-                desk=first.desk,
             )
         )
 

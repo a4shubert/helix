@@ -17,7 +17,6 @@ type TradeFormValues = {
   price: string;
   settlement_date: string;
   book: string;
-  desk: string;
 };
 
 function toFormValues(_portfolioId: string, trade?: PortfolioTrade | null): TradeFormValues {
@@ -28,14 +27,12 @@ function toFormValues(_portfolioId: string, trade?: PortfolioTrade | null): Trad
     price: trade ? String(trade.price) : "",
     settlement_date: trade?.settlement_date ?? "2026-03-23",
     book: trade?.book ?? "",
-    desk: trade?.desk ?? "",
   };
 }
 
 const emptyOptions: TradeFormOptionsResponse = {
   instruments: [],
   books: [],
-  desks: [],
 };
 
 export function TradeFormModal({
@@ -140,7 +137,6 @@ export function TradeFormModal({
         price,
         settlementDate: form.settlement_date,
         book: form.book.trim(),
-        desk: form.desk.trim(),
         version: trade ? trade.version + 1 : 1,
       });
     } finally {
@@ -246,7 +242,7 @@ export function TradeFormModal({
                 required
               />
             </label>
-            <label className="space-y-2">
+            <label className="space-y-2 xl:col-span-2">
               <span className="text-sm text-white">Book</span>
               <select
                 value={form.book}
@@ -259,23 +255,6 @@ export function TradeFormModal({
                 {options.books.map((book) => (
                   <option key={book} value={book}>
                     {book}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm text-white">Desk</span>
-              <select
-                value={form.desk}
-                onChange={(event) => updateField("desk", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-                disabled={isLoadingOptions}
-              >
-                <option value="">Select desk</option>
-                {options.desks.map((desk) => (
-                  <option key={desk} value={desk}>
-                    {desk}
                   </option>
                 ))}
               </select>

@@ -28,7 +28,6 @@ def make_trade(
         trade_timestamp=datetime.fromisoformat(trade_timestamp.replace("Z", "+00:00")),
         settlement_date=date(2026, 3, 24),
         book="Equity",
-        desk="Equities",
         status="processed",
         version=1,
     )

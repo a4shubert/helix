@@ -9,20 +9,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = Path(os.environ.get("HELIX_DB_PATH", str(ROOT / "helix-store" / "helix.db")))
 SCHEMA_PATH = ROOT / "helix-store" / "schema.sql"
-MARKET_DATA_SEED_PATH = ROOT / "helix-store" / "market_data_snapshot_seed.json"
-TRADES_JSON_PATH = ROOT / "helix-web" / "src" / "lib" / "mock" / "trades.json"
+MARKET_DATA_SEED_PATH = ROOT / "helix-store" / "market_data_seed.json"
+INSTRUMENT_SEED_TRADES_PATH = ROOT / "helix-store" / "instrument_seed_trades.json"
 
 PORTFOLIOS = [
-    ("PF-001", "Equity"),
-    ("PF-002", "Fixed Income"),
-    ("PF-003", "Commodities"),
+    ("PF-EQ", "Equity"),
+    ("PF-FI", "Fixed Income"),
+    ("PF-CM", "Commodities"),
 ]
 
 BOOK_BY_ASSET_CLASS = {
     "Equity": "Equity",
-    "Rates": "Fixed Income",
-    "Credit": "Fixed Income",
-    "FX": "Fixed Income",
+    "Fixed Income": "Fixed Income",
     "Commodity": "Commodities",
 }
 
@@ -31,35 +29,33 @@ def load_market_data_rows() -> list[dict[str, object]]:
     return json.loads(MARKET_DATA_SEED_PATH.read_text(encoding="utf-8"))
 
 
-def load_mock_trades() -> list[dict[str, object]]:
-    return json.loads(TRADES_JSON_PATH.read_text(encoding="utf-8"))
+def load_instrument_seed_trades() -> list[dict[str, object]]:
+    return json.loads(INSTRUMENT_SEED_TRADES_PATH.read_text(encoding="utf-8"))
 
 
 def build_reference_data(
-    mock_trades: list[dict[str, object]],
-) -> tuple[list[dict[str, object]], list[str], list[str]]:
+    seed_trades: list[dict[str, object]],
+) -> tuple[list[dict[str, object]], list[str]]:
     instruments: dict[str, dict[str, object]] = {}
     books: set[str] = set()
-    desks: set[str] = set()
 
-    for trade in mock_trades:
+    for trade in seed_trades:
+        asset_class = str(trade["asset_class"])
         instrument_id = str(trade["instrument_id"])
         instruments.setdefault(
             instrument_id,
             {
                 "instrument_id": instrument_id,
                 "instrument_name": str(trade["instrument_name"]),
-                "asset_class": str(trade["asset_class"]),
+                "asset_class": asset_class,
                 "currency": "USD",
             },
         )
-        books.add(BOOK_BY_ASSET_CLASS.get(str(trade["asset_class"]), "Fixed Income"))
-        desks.add(str(trade["desk"]))
+        books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "Fixed Income"))
 
     return (
         sorted(instruments.values(), key=lambda value: str(value["instrument_name"])),
         sorted(books),
-        sorted(desks),
     )
 
 
@@ -67,57 +63,43 @@ def main() -> None:
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     schema_sql = SCHEMA_PATH.read_text(encoding="utf-8")
     market_data_rows = load_market_data_rows()
-    instruments, books, desks = build_reference_data(load_mock_trades())
+    instruments, books = build_reference_data(load_instrument_seed_trades())
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = OFF;")
         for table in [
+            "audit",
             "audit_log",
-            "alert",
-            "report",
+            "risk",
+            "risk_snapshot",
+            "pnl",
+            "pnl_snapshot",
+            "position",
+            "position_snapshot",
+            "trades",
+            "book",
+            "strategy",
+            "instrument",
+            "market_data",
+            "market_data_snapshot",
+            "portfolio",
+            "desk",
             "scenario_result",
             "scenario_position",
             "scenario_run",
-            "risk_snapshot",
-            "pnl_snapshot",
-            "position_snapshot",
-            "trades",
-            "desk",
-            "book",
-            "instrument",
-            "market_data_snapshot",
-            "portfolio",
+            "report",
+            "alert",
         ]:
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(schema_sql)
 
-        market_count = conn.execute("SELECT COUNT(*) FROM market_data_snapshot").fetchone()[0]
-        if market_count == 0:
-            for row in market_data_rows:
-                conn.execute(
-                    """
-                    INSERT INTO market_data_snapshot (
-                      snapshot_id, instrument_id, field_name, field_value, as_of_ts, source
-                    )
-                    VALUES (?, ?, ?, ?, ?, ?)
-                    """,
-                    (
-                        row["snapshot_id"],
-                        row["instrument_id"],
-                        row["field_name"],
-                        row["field_value"],
-                        row["as_of_ts"],
-                        row["source"],
-                    ),
-                )
-
-        for portfolio_id, name in PORTFOLIOS:
+        for instrument_id, name in PORTFOLIOS:
             conn.execute(
                 """
                 INSERT INTO portfolio (portfolio_id, name, status, created_at)
                 VALUES (?, ?, 'active', '2026-03-21T09:30:00Z')
                 """,
-                (portfolio_id, name),
+                (instrument_id, name),
             )
 
         for instrument in instruments:
@@ -138,8 +120,15 @@ def main() -> None:
 
         for value in books:
             conn.execute("INSERT INTO book (name) VALUES (?)", (value,))
-        for value in desks:
-            conn.execute("INSERT INTO desk (name) VALUES (?)", (value,))
+
+        for row in market_data_rows:
+            conn.execute(
+                """
+                INSERT INTO market_data (instrument_id, price, updated_at)
+                VALUES (?, ?, ?)
+                """,
+                (row["instrument_id"], row["price"], "2026-03-21T08:59:00Z"),
+            )
 
         conn.commit()
         conn.execute("PRAGMA foreign_keys = ON;")

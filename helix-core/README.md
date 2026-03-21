@@ -23,7 +23,6 @@ trades = [
         trade_timestamp=datetime(2026, 3, 21, 9, 30, tzinfo=UTC),
         settlement_date=None,
         book="Equity",
-        desk="Equities",
         status="processed",
         version=1,
     )

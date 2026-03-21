@@ -37,7 +37,6 @@ function normalizeTrade(trade: PortfolioTrade | Record<string, unknown>): Portfo
     trade_timestamp: String(raw.trade_timestamp ?? raw.tradeTimestamp ?? ""),
     settlement_date: String(raw.settlement_date ?? raw.settlementDate ?? ""),
     book: String(raw.book ?? ""),
-    desk: String(raw.desk ?? ""),
     status: String(raw.status ?? ""),
     version: Number(raw.version ?? 1),
     created_at: String(raw.created_at ?? raw.createdAt ?? ""),
@@ -82,7 +81,6 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
   { field: "trade_timestamp", headerName: "Trade Timestamp", minWidth: 220 },
   { field: "settlement_date", headerName: "Settlement Date", minWidth: 155 },
   { field: "book", headerName: "Book", minWidth: 160 },
-  { field: "desk", headerName: "Desk", minWidth: 140 },
   { field: "status", headerName: "Status", minWidth: 120 },
   {
     field: "version",

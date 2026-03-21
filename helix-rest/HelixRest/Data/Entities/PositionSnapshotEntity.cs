@@ -18,7 +18,6 @@ public class PositionSnapshotEntity
     public double? Notional { get; set; }
     public double? MarketValue { get; set; }
     public string? Book { get; set; }
-    public string? Desk { get; set; }
     public DateTime AsOfTs { get; set; }
     public string? SourceEventId { get; set; }
 

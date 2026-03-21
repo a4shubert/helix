@@ -7,58 +7,42 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DB_PATH = ROOT / "helix-store" / "helix.db"
-TRADES_JSON_PATH = ROOT / "helix-web" / "src" / "lib" / "mock" / "trades.json"
+SEED_TRADES_PATH = ROOT / "helix-store" / "instrument_seed_trades.json"
+
 BOOK_BY_ASSET_CLASS = {
     "Equity": "Equity",
-    "Rates": "Fixed Income",
-    "Credit": "Fixed Income",
-    "FX": "Fixed Income",
+    "Fixed Income": "Fixed Income",
     "Commodity": "Commodities",
 }
 
 
-def load_trades() -> list[dict[str, object]]:
-    return json.loads(TRADES_JSON_PATH.read_text(encoding="utf-8"))
+def load_seed_trades() -> list[dict[str, object]]:
+    return json.loads(SEED_TRADES_PATH.read_text(encoding="utf-8"))
 
 
 def main() -> None:
-    trades = load_trades()
+    seed_trades = load_seed_trades()
 
     instruments: dict[str, dict[str, object]] = {}
     books: set[str] = set()
-    desks: set[str] = set()
 
-    for trade in trades:
+    for trade in seed_trades:
+        asset_class = str(trade["asset_class"])
         instrument_id = str(trade["instrument_id"])
         instruments.setdefault(
             instrument_id,
             {
                 "instrument_id": instrument_id,
                 "instrument_name": str(trade["instrument_name"]),
-                "asset_class": str(trade["asset_class"]),
+                "asset_class": asset_class,
                 "currency": "USD",
             },
         )
-        books.add(BOOK_BY_ASSET_CLASS.get(str(trade["asset_class"]), "Fixed Income"))
-        desks.add(str(trade["desk"]))
+        books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "Fixed Income"))
 
     with sqlite3.connect(DB_PATH) as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS instrument (
-              instrument_id TEXT PRIMARY KEY,
-              instrument_name TEXT NOT NULL,
-              asset_class TEXT NOT NULL,
-              currency TEXT NOT NULL,
-              active INTEGER NOT NULL DEFAULT 1
-            )
-            """
-        )
-        conn.execute("CREATE TABLE IF NOT EXISTS book (name TEXT PRIMARY KEY)")
-        conn.execute("CREATE TABLE IF NOT EXISTS desk (name TEXT PRIMARY KEY)")
-
-        for table in ["instrument", "book", "desk"]:
-            conn.execute(f"DELETE FROM {table}")
+        conn.execute("DELETE FROM instrument")
+        conn.execute("DELETE FROM book")
 
         conn.executemany(
             """
@@ -79,10 +63,6 @@ def main() -> None:
         conn.executemany(
             "INSERT INTO book (name) VALUES (?)",
             [(value,) for value in sorted(books)],
-        )
-        conn.executemany(
-            "INSERT INTO desk (name) VALUES (?)",
-            [(value,) for value in sorted(desks)],
         )
         conn.commit()
 

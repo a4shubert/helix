@@ -10,7 +10,6 @@ public class HelixContext : DbContext
     public DbSet<PortfolioEntity> Portfolios => Set<PortfolioEntity>();
     public DbSet<InstrumentEntity> Instruments => Set<InstrumentEntity>();
     public DbSet<BookEntity> Books => Set<BookEntity>();
-    public DbSet<DeskEntity> Desks => Set<DeskEntity>();
     public DbSet<TradeEntity> Trades => Set<TradeEntity>();
     public DbSet<PositionSnapshotEntity> PositionSnapshots => Set<PositionSnapshotEntity>();
     public DbSet<PnlSnapshotEntity> PnlSnapshots => Set<PnlSnapshotEntity>();
@@ -46,13 +45,6 @@ public class HelixContext : DbContext
             entity.Property(x => x.Name).HasColumnName("name");
         });
 
-        modelBuilder.Entity<DeskEntity>(entity =>
-        {
-            entity.ToTable("desk");
-            entity.HasKey(x => x.Name);
-            entity.Property(x => x.Name).HasColumnName("name");
-        });
-
         modelBuilder.Entity<TradeEntity>(entity =>
         {
             entity.ToTable("trades");
@@ -71,7 +63,6 @@ public class HelixContext : DbContext
             entity.Property(x => x.TradeTimestamp).HasColumnName("trade_timestamp");
             entity.Property(x => x.SettlementDate).HasColumnName("settlement_date");
             entity.Property(x => x.Book).HasColumnName("book");
-            entity.Property(x => x.Desk).HasColumnName("desk");
             entity.Property(x => x.Status).HasColumnName("status");
             entity.Property(x => x.Version).HasColumnName("version");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
@@ -83,7 +74,7 @@ public class HelixContext : DbContext
 
         modelBuilder.Entity<PositionSnapshotEntity>(entity =>
         {
-            entity.ToTable("position_snapshot");
+            entity.ToTable("position");
             entity.HasKey(x => x.SnapshotId);
             entity.Property(x => x.SnapshotId).HasColumnName("snapshot_id");
             entity.Property(x => x.PortfolioId).HasColumnName("portfolio_id");
@@ -101,7 +92,6 @@ public class HelixContext : DbContext
             entity.Property(x => x.Notional).HasColumnName("notional");
             entity.Property(x => x.MarketValue).HasColumnName("market_value");
             entity.Property(x => x.Book).HasColumnName("book");
-            entity.Property(x => x.Desk).HasColumnName("desk");
             entity.Property(x => x.AsOfTs).HasColumnName("as_of_ts");
             entity.Property(x => x.SourceEventId).HasColumnName("source_event_id");
             entity.HasOne(x => x.Portfolio)
@@ -111,7 +101,7 @@ public class HelixContext : DbContext
 
         modelBuilder.Entity<PnlSnapshotEntity>(entity =>
         {
-            entity.ToTable("pnl_snapshot");
+            entity.ToTable("pnl");
             entity.HasKey(x => x.SnapshotId);
             entity.Property(x => x.SnapshotId).HasColumnName("snapshot_id");
             entity.Property(x => x.PortfolioId).HasColumnName("portfolio_id");
@@ -128,7 +118,7 @@ public class HelixContext : DbContext
 
         modelBuilder.Entity<RiskSnapshotEntity>(entity =>
         {
-            entity.ToTable("risk_snapshot");
+            entity.ToTable("risk");
             entity.HasKey(x => x.SnapshotId);
             entity.Property(x => x.SnapshotId).HasColumnName("snapshot_id");
             entity.Property(x => x.PortfolioId).HasColumnName("portfolio_id");

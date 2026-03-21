@@ -16,7 +16,6 @@ public class TradeEntity
     public DateTime TradeTimestamp { get; set; }
     public DateOnly? SettlementDate { get; set; }
     public string? Book { get; set; }
-    public string? Desk { get; set; }
     public required string Status { get; set; }
     public int Version { get; set; }
     public DateTime CreatedAt { get; set; }
