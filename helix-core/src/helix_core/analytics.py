@@ -17,9 +17,9 @@ from .models import (
 )
 
 
-def mark_to_market(quantity: float, price: float, contract_multiplier: float = 1.0) -> float:
+def mark_to_market(quantity: float, price: float) -> float:
     """Return gross market value for an absolute quantity."""
-    return quantity * price * contract_multiplier
+    return quantity * price
 
 
 def signed_trade_quantity(trade: Trade) -> float:
@@ -30,6 +30,68 @@ def signed_trade_quantity(trade: Trade) -> float:
     if side == "SELL":
         return -trade.quantity
     raise ValueError(f"Unsupported trade side: {trade.side}")
+
+
+def _sign(value: float) -> float:
+    if value > 0:
+        return 1.0
+    if value < 0:
+        return -1.0
+    return 0.0
+
+
+def summarize_position_trades(trades: list[Trade]) -> tuple[float, float, float]:
+    """Return final signed quantity, average cost, and realized P&L.
+
+    The inventory model is average-cost based:
+    - same-direction trades increase inventory and re-average cost
+    - opposite-direction trades realize P&L on the closed quantity
+    - if the trade flips the position, the residual opens at the trade price
+    """
+    if not trades:
+        return 0.0, 0.0, 0.0
+
+    signed_quantity = 0.0
+    average_cost = 0.0
+    realized_pnl = 0.0
+
+    for trade in trades:
+        trade_signed_quantity = signed_trade_quantity(trade)
+        trade_sign = _sign(trade_signed_quantity)
+        current_sign = _sign(signed_quantity)
+        trade_abs_quantity = abs(trade_signed_quantity)
+
+        if signed_quantity == 0:
+            signed_quantity = trade_signed_quantity
+            average_cost = trade.price
+            continue
+
+        if current_sign == trade_sign:
+            total_abs_quantity = abs(signed_quantity) + trade_abs_quantity
+            average_cost = (
+                (abs(signed_quantity) * average_cost) + (trade_abs_quantity * trade.price)
+            ) / total_abs_quantity
+            signed_quantity += trade_signed_quantity
+            continue
+
+        closing_quantity = min(abs(signed_quantity), trade_abs_quantity)
+        realized_pnl += (
+            current_sign
+            * closing_quantity
+            * (trade.price - average_cost)
+        )
+
+        residual_quantity = trade_abs_quantity - closing_quantity
+        if residual_quantity == 0:
+            signed_quantity += trade_signed_quantity
+            if signed_quantity == 0:
+                average_cost = 0.0
+            continue
+
+        signed_quantity = trade_sign * residual_quantity
+        average_cost = trade.price
+
+    return signed_quantity, average_cost, realized_pnl
 
 
 def rebuild_positions(
@@ -51,20 +113,17 @@ def rebuild_positions(
         if market is None:
             raise KeyError(f"Missing market input for instrument '{first.instrument_id}'.")
 
-        total_signed_quantity = sum(signed_trade_quantity(trade) for trade in ordered)
+        total_signed_quantity, average_cost, _ = summarize_position_trades(ordered)
         absolute_quantity = abs(total_signed_quantity)
         if absolute_quantity == 0:
             continue
 
-        weighted_cost = sum(trade.quantity * trade.price for trade in ordered)
-        average_cost = weighted_cost / sum(trade.quantity for trade in ordered)
         direction = "LONG" if total_signed_quantity >= 0 else "SHORT"
-        notional = mark_to_market(absolute_quantity, average_cost, first.contract_multiplier)
-        market_value = mark_to_market(absolute_quantity, market.market_price, first.contract_multiplier)
+        notional = mark_to_market(absolute_quantity, average_cost)
+        market_value = mark_to_market(absolute_quantity, market.market_price)
         unrealized_pnl = (
             total_signed_quantity
             * (market.market_price - average_cost)
-            * first.contract_multiplier
         )
 
         positions.append(
@@ -78,18 +137,13 @@ def rebuild_positions(
                 quantity=absolute_quantity,
                 direction=direction,
                 average_cost=average_cost,
-                contract_multiplier=first.contract_multiplier,
-                trade_date=first.trade_timestamp.date(),
                 last_update_ts=last.trade_timestamp,
                 market_price=market.market_price,
                 market_data_ts=market.market_data_timestamp,
-                fx_rate=market.fx_rate,
                 notional=notional,
                 market_value=market_value,
                 unrealized_pnl=unrealized_pnl,
-                sector=None,
-                region=None,
-                strategy=first.strategy or first.book,
+                book=first.book,
                 desk=first.desk,
             )
         )
@@ -145,13 +199,11 @@ def compute_portfolio_risk(
         signed_exposure = (
             signed_quantity_value
             * position.market_price
-            * position.contract_multiplier
-            * position.fx_rate
         )
-        gross_market_value = position.market_value * position.fx_rate
+        gross_market_value = position.market_value
 
         delta += signed_exposure
-        gamma += signed_quantity_value * position.fx_rate * 0.1
+        gamma += signed_quantity_value * 0.1
         variance += (gross_market_value * market.risk_weight) ** 2
         stress_loss -= gross_market_value * 0.10
 
@@ -177,15 +229,22 @@ def compute_portfolio_analytics(
 ) -> PortfolioAnalytics:
     """Rebuild positions and compute portfolio P&L and risk from trades plus market inputs."""
     valuation_time = valuation_ts or datetime.now(UTC)
+    grouped: dict[tuple[str, str], list[Trade]] = defaultdict(list)
+    for trade in trades:
+        grouped[(trade.portfolio_id, trade.position_id)].append(trade)
+
+    computed_realized_pnl = 0.0
+    for position_trades in grouped.values():
+        ordered = sorted(position_trades, key=lambda trade: trade.trade_timestamp)
+        _, _, position_realized_pnl = summarize_position_trades(ordered)
+        computed_realized_pnl += position_realized_pnl
+
     positions = rebuild_positions(trades, market_inputs)
-    positions = [
-        replace(position, strategy=position.strategy or "UNSPECIFIED")
-        for position in positions
-    ]
+    positions = [replace(position, book=position.book or "UNSPECIFIED") for position in positions]
     pnl = compute_portfolio_pnl(
         portfolio_id,
         positions,
-        realized_pnl=realized_pnl,
+        realized_pnl=realized_pnl + computed_realized_pnl,
         valuation_ts=valuation_time,
     )
     risk = compute_portfolio_risk(

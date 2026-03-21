@@ -12,5 +12,13 @@ if [[ -f "${SCRIPT_DIR}/env.sh" ]]; then
   source "${SCRIPT_DIR}/env.sh"
 fi
 
+DOTNET_BIN="${HOME}/.dotnet/dotnet"
+if [[ ! -x "${DOTNET_BIN}" ]]; then
+  DOTNET_BIN="$(command -v dotnet)"
+fi
+
+echo "[rest_start_dev] Initializing clean Helix DB state..."
+python3 "${REPO_ROOT}/helix-store/init_clean_state.py"
+
 cd "${PROJECT_DIR}"
-ASPNETCORE_ENVIRONMENT=Development dotnet run --launch-profile "HelixRest"
+ASPNETCORE_ENVIRONMENT=Development "${DOTNET_BIN}" run --launch-profile "HelixRest"

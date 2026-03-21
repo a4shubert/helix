@@ -56,6 +56,7 @@ class TradeCreatedProcessor:
             event.trade_id,
             "processed",
             updated_at=event.occurred_at,
+            notional=triggering_trade.quantity * triggering_trade.price,
         )
 
         published_events = self._publish_updates(persisted)

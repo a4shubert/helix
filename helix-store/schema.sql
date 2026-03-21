@@ -7,6 +7,22 @@ CREATE TABLE IF NOT EXISTS portfolio (
   created_at DATETIME NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS instrument (
+  instrument_id TEXT PRIMARY KEY,
+  instrument_name TEXT NOT NULL,
+  asset_class TEXT NOT NULL,
+  currency TEXT NOT NULL,
+  active INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS book (
+  name TEXT PRIMARY KEY
+);
+
+CREATE TABLE IF NOT EXISTS desk (
+  name TEXT PRIMARY KEY
+);
+
 CREATE TABLE IF NOT EXISTS trades (
   trade_id TEXT PRIMARY KEY,
   portfolio_id TEXT NOT NULL,
@@ -18,11 +34,9 @@ CREATE TABLE IF NOT EXISTS trades (
   side TEXT NOT NULL,
   quantity REAL NOT NULL,
   price REAL NOT NULL,
-  contract_multiplier REAL NOT NULL,
-  notional REAL NOT NULL,
+  notional REAL,
   trade_timestamp DATETIME NOT NULL,
   settlement_date DATE,
-  strategy TEXT,
   book TEXT,
   desk TEXT,
   status TEXT NOT NULL,
@@ -43,17 +57,12 @@ CREATE TABLE IF NOT EXISTS position_snapshot (
   quantity REAL NOT NULL,
   direction TEXT NOT NULL,
   average_cost REAL NOT NULL,
-  contract_multiplier REAL NOT NULL,
-  trade_date DATE NOT NULL,
   last_update_ts DATETIME NOT NULL,
   market_price REAL,
   market_data_ts DATETIME,
-  fx_rate REAL,
   notional REAL,
   market_value REAL,
-  sector TEXT,
-  region TEXT,
-  strategy TEXT,
+  book TEXT,
   desk TEXT,
   as_of_ts DATETIME NOT NULL,
   source_event_id TEXT,

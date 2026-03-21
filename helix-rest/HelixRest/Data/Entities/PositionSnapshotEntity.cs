@@ -12,17 +12,12 @@ public class PositionSnapshotEntity
     public double Quantity { get; set; }
     public required string Direction { get; set; }
     public double AverageCost { get; set; }
-    public double ContractMultiplier { get; set; }
-    public DateOnly TradeDate { get; set; }
     public DateTime LastUpdateTs { get; set; }
     public double? MarketPrice { get; set; }
     public DateTime? MarketDataTs { get; set; }
-    public double? FxRate { get; set; }
     public double? Notional { get; set; }
     public double? MarketValue { get; set; }
-    public string? Sector { get; set; }
-    public string? Region { get; set; }
-    public string? Strategy { get; set; }
+    public string? Book { get; set; }
     public string? Desk { get; set; }
     public DateTime AsOfTs { get; set; }
     public string? SourceEventId { get; set; }

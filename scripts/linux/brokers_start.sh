@@ -10,6 +10,31 @@ if [[ -f "${SCRIPT_DIR}/env.sh" ]]; then
   source "${SCRIPT_DIR}/env.sh"
 fi
 
+cleanup() {
+  if [[ "${_BROKERS_CLEANED_UP:-0}" == "1" ]]; then
+    return
+  fi
+  _BROKERS_CLEANED_UP=1
+
+  if [[ -f "${HELIX_KAFKA_UI_PID_FILE}" ]]; then
+    KAFKA_UI_PID="$(cat "${HELIX_KAFKA_UI_PID_FILE}")"
+    if kill -0 "${KAFKA_UI_PID}" >/dev/null 2>&1; then
+      echo "[brokers_start] Stopping Kafka UI (PID ${KAFKA_UI_PID})..."
+      kill "${KAFKA_UI_PID}" || true
+      wait "${KAFKA_UI_PID}" 2>/dev/null || true
+    fi
+    rm -f "${HELIX_KAFKA_UI_PID_FILE}"
+  fi
+
+  echo "[brokers_start] Stopping Kafka..."
+  brew services stop kafka || true
+
+  echo "[brokers_start] Stopping RabbitMQ..."
+  brew services stop rabbitmq || true
+}
+
+trap cleanup INT TERM EXIT
+
 mkdir -p "${HELIX_KAFKA_UI_DIR}"
 
 if ! command -v brew >/dev/null 2>&1; then
@@ -48,7 +73,7 @@ if [[ -f "${HELIX_KAFKA_UI_PID_FILE}" ]] && kill -0 "$(cat "${HELIX_KAFKA_UI_PID
   echo "[brokers_start] Kafka UI already running with PID $(cat "${HELIX_KAFKA_UI_PID_FILE}")"
 else
   echo "[brokers_start] Starting Provectus Kafka UI..."
-  nohup env \
+  env \
     SERVER_PORT="${HELIX_KAFKA_UI_PORT}" \
     KAFKA_CLUSTERS_0_NAME="helix-local" \
     KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS="${HELIX_KAFKA_BOOTSTRAP_SERVERS}" \
@@ -63,10 +88,16 @@ echo "[brokers_start] RabbitMQ management UI: ${HELIX_RABBITMQ_MANAGEMENT_URL}"
 echo "[brokers_start] Kafka bootstrap servers: ${HELIX_KAFKA_BOOTSTRAP_SERVERS}"
 echo "[brokers_start] Kafka UI: ${HELIX_KAFKA_UI_URL}"
 
-if command -v open >/dev/null 2>&1; then
-  open "${HELIX_RABBITMQ_MANAGEMENT_URL}" || true
-  open "${HELIX_KAFKA_UI_URL}" || true
-elif command -v xdg-open >/dev/null 2>&1; then
-  xdg-open "${HELIX_RABBITMQ_MANAGEMENT_URL}" || true
-  xdg-open "${HELIX_KAFKA_UI_URL}" || true
-fi
+# if command -v open >/dev/null 2>&1; then
+#   open "${HELIX_RABBITMQ_MANAGEMENT_URL}" || true
+#   open "${HELIX_KAFKA_UI_URL}" || true
+# elif command -v xdg-open >/dev/null 2>&1; then
+#   xdg-open "${HELIX_RABBITMQ_MANAGEMENT_URL}" || true
+#   xdg-open "${HELIX_KAFKA_UI_URL}" || true
+# fi
+
+echo "[brokers_start] Brokers are running. Press Ctrl+C to stop Kafka, RabbitMQ, and Kafka UI."
+
+while true; do
+  sleep 1
+done

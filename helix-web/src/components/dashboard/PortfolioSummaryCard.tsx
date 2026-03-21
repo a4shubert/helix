@@ -4,15 +4,15 @@ import type { MetricValue } from "@/lib/mock/portfolio";
 
 function MetricRows({ metrics }: { metrics: MetricValue[] }) {
   return (
-    <div className="space-y-4">
+    <div className="w-full space-y-4">
       {metrics.map((metric) => (
         <div
           key={metric.label}
-          className="flex items-end justify-between gap-6 border-b border-white/6 pb-3 last:border-b-0 last:pb-0"
+          className="inline-grid min-w-[28rem] grid-cols-2 items-end border-b border-white/6 pb-3 last:border-b-0 last:pb-0 md:min-w-[32rem]"
         >
           <span className="text-xl text-white">{metric.label}</span>
           <span
-            className={`text-xl font-light tabular-nums md:text-2xl ${
+            className={`justify-self-start text-xl font-light tabular-nums md:text-2xl ${
               metric.value >= 0
                 ? "font-medium text-[#2DD3B6] drop-shadow-[0_0_10px_rgba(45,211,182,0.28)]"
                 : "font-medium text-[#f87171] drop-shadow-[0_0_10px_rgba(248,113,113,0.30)]"

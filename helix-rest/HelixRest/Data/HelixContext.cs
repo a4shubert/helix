@@ -8,6 +8,9 @@ public class HelixContext : DbContext
     public HelixContext(DbContextOptions<HelixContext> options) : base(options) { }
 
     public DbSet<PortfolioEntity> Portfolios => Set<PortfolioEntity>();
+    public DbSet<InstrumentEntity> Instruments => Set<InstrumentEntity>();
+    public DbSet<BookEntity> Books => Set<BookEntity>();
+    public DbSet<DeskEntity> Desks => Set<DeskEntity>();
     public DbSet<TradeEntity> Trades => Set<TradeEntity>();
     public DbSet<PositionSnapshotEntity> PositionSnapshots => Set<PositionSnapshotEntity>();
     public DbSet<PnlSnapshotEntity> PnlSnapshots => Set<PnlSnapshotEntity>();
@@ -25,6 +28,31 @@ public class HelixContext : DbContext
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
         });
 
+        modelBuilder.Entity<InstrumentEntity>(entity =>
+        {
+            entity.ToTable("instrument");
+            entity.HasKey(x => x.InstrumentId);
+            entity.Property(x => x.InstrumentId).HasColumnName("instrument_id");
+            entity.Property(x => x.InstrumentName).HasColumnName("instrument_name");
+            entity.Property(x => x.AssetClass).HasColumnName("asset_class");
+            entity.Property(x => x.Currency).HasColumnName("currency");
+            entity.Property(x => x.Active).HasColumnName("active");
+        });
+
+        modelBuilder.Entity<BookEntity>(entity =>
+        {
+            entity.ToTable("book");
+            entity.HasKey(x => x.Name);
+            entity.Property(x => x.Name).HasColumnName("name");
+        });
+
+        modelBuilder.Entity<DeskEntity>(entity =>
+        {
+            entity.ToTable("desk");
+            entity.HasKey(x => x.Name);
+            entity.Property(x => x.Name).HasColumnName("name");
+        });
+
         modelBuilder.Entity<TradeEntity>(entity =>
         {
             entity.ToTable("trades");
@@ -39,11 +67,9 @@ public class HelixContext : DbContext
             entity.Property(x => x.Side).HasColumnName("side");
             entity.Property(x => x.Quantity).HasColumnName("quantity");
             entity.Property(x => x.Price).HasColumnName("price");
-            entity.Property(x => x.ContractMultiplier).HasColumnName("contract_multiplier");
             entity.Property(x => x.Notional).HasColumnName("notional");
             entity.Property(x => x.TradeTimestamp).HasColumnName("trade_timestamp");
             entity.Property(x => x.SettlementDate).HasColumnName("settlement_date");
-            entity.Property(x => x.Strategy).HasColumnName("strategy");
             entity.Property(x => x.Book).HasColumnName("book");
             entity.Property(x => x.Desk).HasColumnName("desk");
             entity.Property(x => x.Status).HasColumnName("status");
@@ -69,17 +95,12 @@ public class HelixContext : DbContext
             entity.Property(x => x.Quantity).HasColumnName("quantity");
             entity.Property(x => x.Direction).HasColumnName("direction");
             entity.Property(x => x.AverageCost).HasColumnName("average_cost");
-            entity.Property(x => x.ContractMultiplier).HasColumnName("contract_multiplier");
-            entity.Property(x => x.TradeDate).HasColumnName("trade_date");
             entity.Property(x => x.LastUpdateTs).HasColumnName("last_update_ts");
             entity.Property(x => x.MarketPrice).HasColumnName("market_price");
             entity.Property(x => x.MarketDataTs).HasColumnName("market_data_ts");
-            entity.Property(x => x.FxRate).HasColumnName("fx_rate");
             entity.Property(x => x.Notional).HasColumnName("notional");
             entity.Property(x => x.MarketValue).HasColumnName("market_value");
-            entity.Property(x => x.Sector).HasColumnName("sector");
-            entity.Property(x => x.Region).HasColumnName("region");
-            entity.Property(x => x.Strategy).HasColumnName("strategy");
+            entity.Property(x => x.Book).HasColumnName("book");
             entity.Property(x => x.Desk).HasColumnName("desk");
             entity.Property(x => x.AsOfTs).HasColumnName("as_of_ts");
             entity.Property(x => x.SourceEventId).HasColumnName("source_event_id");

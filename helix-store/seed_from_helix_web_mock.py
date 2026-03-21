@@ -15,6 +15,13 @@ MOCK_TS_PATH = ROOT / "helix-web" / "src" / "lib" / "mock" / "portfolio.ts"
 DASHBOARD_TSX_PATH = ROOT / "helix-web" / "src" / "components" / "dashboard" / "PortfolioDashboard.tsx"
 TRADES_JSON_PATH = ROOT / "helix-web" / "src" / "lib" / "mock" / "trades.json"
 MARKET_DATA_SEED_PATH = ROOT / "helix-store" / "market_data_snapshot_seed.json"
+BOOK_BY_ASSET_CLASS = {
+    "Equity": "Equity",
+    "Rates": "Fixed Income",
+    "Credit": "Fixed Income",
+    "FX": "Fixed Income",
+    "Commodity": "Commodities",
+}
 
 
 def load_mock_portfolios() -> dict[str, object]:
@@ -51,9 +58,13 @@ def load_mock_portfolios() -> dict[str, object]:
 def load_portfolio_names() -> dict[str, str]:
     text = DASHBOARD_TSX_PATH.read_text(encoding="utf-8")
     matches = re.findall(r'key: "(PF-\d+)",\s+label: "([^"]+)"', text)
-    if not matches:
-        raise RuntimeError("Could not extract portfolio names from PortfolioDashboard.tsx.")
-    return {key: label for key, label in matches}
+    if matches:
+        return {key: label for key, label in matches}
+    return {
+        "PF-001": "Equity",
+        "PF-002": "Fixed Income",
+        "PF-003": "Commodities",
+    }
 
 
 def metric_lookup(metrics: list[dict[str, object]]) -> dict[str, float]:
@@ -68,17 +79,49 @@ def load_market_data_rows() -> list[dict[str, object]]:
     return json.loads(MARKET_DATA_SEED_PATH.read_text(encoding="utf-8"))
 
 
+def build_reference_data(
+    mock_trades: list[dict[str, object]],
+) -> tuple[list[dict[str, object]], list[str], list[str]]:
+    instruments: dict[str, dict[str, object]] = {}
+    books: set[str] = set()
+    desks: set[str] = set()
+
+    for trade in mock_trades:
+        instrument_id = str(trade["instrument_id"])
+        instruments.setdefault(
+            instrument_id,
+            {
+                "instrument_id": instrument_id,
+                "instrument_name": str(trade["instrument_name"]),
+                "asset_class": str(trade["asset_class"]),
+                "currency": "USD",
+            },
+        )
+        books.add(BOOK_BY_ASSET_CLASS.get(str(trade["asset_class"]), "Fixed Income"))
+        desks.add(str(trade["desk"]))
+
+    return (
+        sorted(instruments.values(), key=lambda value: str(value["instrument_name"])),
+        sorted(books),
+        sorted(desks),
+    )
+
+
 def main() -> None:
     mock_dashboards = load_mock_portfolios()
     portfolio_names = load_portfolio_names()
     mock_trades = load_mock_trades()
     market_data_rows = load_market_data_rows()
+    instruments, books, desks = build_reference_data(mock_trades)
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("PRAGMA foreign_keys = ON;")
 
         for table in [
             "market_data_snapshot",
+            "instrument",
+            "book",
+            "desk",
             "position_snapshot",
             "pnl_snapshot",
             "risk_snapshot",
@@ -92,6 +135,27 @@ def main() -> None:
             "portfolio",
         ]:
             conn.execute(f"DELETE FROM {table}")
+
+        for instrument in instruments:
+            conn.execute(
+                """
+                INSERT INTO instrument (
+                  instrument_id, instrument_name, asset_class, currency, active
+                )
+                VALUES (?, ?, ?, ?, 1)
+                """,
+                (
+                    instrument["instrument_id"],
+                    instrument["instrument_name"],
+                    instrument["asset_class"],
+                    instrument["currency"],
+                ),
+            )
+
+        for value in books:
+            conn.execute("INSERT INTO book (name) VALUES (?)", (value,))
+        for value in desks:
+            conn.execute("INSERT INTO desk (name) VALUES (?)", (value,))
 
         for portfolio_id, dashboard in mock_dashboards.items():
             portfolio_payload = dashboard["portfolio"]
@@ -164,12 +228,11 @@ def main() -> None:
                     """
                     INSERT INTO position_snapshot (
                       snapshot_id, portfolio_id, position_id, instrument_id, instrument_name,
-                      asset_class, currency, quantity, direction, average_cost, contract_multiplier,
-                      trade_date, last_update_ts, market_price, market_data_ts, fx_rate, notional,
-                      market_value,
-                      sector, region, strategy, desk, as_of_ts, source_event_id
+                      asset_class, currency, quantity, direction, average_cost,
+                      last_update_ts, market_price, market_data_ts, notional,
+                      market_value, book, desk, as_of_ts, source_event_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         f"POSITION-{position['positionId']}-{as_of}",
@@ -182,17 +245,12 @@ def main() -> None:
                         position["quantity"],
                         position["direction"],
                         position["averageCost"],
-                        position["contractMultiplier"],
-                        position["tradeDate"],
                         position["lastUpdateTs"],
                         position["marketPrice"],
                         position["marketDataTs"],
-                        position["fxRate"],
                         position["notional"],
                         position["marketValue"],
-                        position["sector"],
-                        position["region"],
-                        position["strategy"],
+                        position["book"],
                         position["desk"],
                         as_of,
                         None,
@@ -202,30 +260,28 @@ def main() -> None:
         for trade in mock_trades:
             conn.execute(
                 """
-                INSERT INTO trades (
-                  trade_id, portfolio_id, position_id, instrument_id, instrument_name,
-                  asset_class, currency, side, quantity, price, contract_multiplier, notional, trade_timestamp,
-                  settlement_date, strategy, book, desk, status, version,
-                  created_at, updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                """,
-                (
+                    INSERT INTO trades (
+                      trade_id, portfolio_id, position_id, instrument_id, instrument_name,
+                      asset_class, currency, side, quantity, price, notional, trade_timestamp,
+                      settlement_date, book, desk, status, version,
+                      created_at, updated_at
+                    )
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """,
+                    (
                     trade["trade_id"],
                     trade["portfolio_id"],
                     trade["position_id"],
                     trade["instrument_id"],
                     trade["instrument_name"],
                     trade["asset_class"],
-                    trade["currency"],
+                    "USD",
                     trade["side"],
                     trade["quantity"],
                     trade["price"],
-                    trade["contract_multiplier"],
                     trade["notional"],
                     trade["trade_timestamp"],
                     trade["settlement_date"],
-                    trade["strategy"],
                     trade["book"],
                     trade["desk"],
                     trade["status"],

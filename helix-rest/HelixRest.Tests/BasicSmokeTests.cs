@@ -37,6 +37,16 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
             Status = "active",
             CreatedAt = DateTime.UtcNow
         });
+        db.Instruments.Add(new InstrumentEntity
+        {
+            InstrumentId = "AAPL",
+            InstrumentName = "Apple Inc",
+            AssetClass = "Equity",
+            Currency = "USD",
+            Active = true
+        });
+        db.Books.Add(new BookEntity { Name = "Equity" });
+        db.Desks.Add(new DeskEntity { Name = "Equities" });
         db.SaveChanges();
     }
 
@@ -64,17 +74,11 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
         {
             portfolioId = "PF-TEST",
             instrumentId = "AAPL",
-            instrumentName = "Apple Inc",
-            assetClass = "Equity",
-            currency = "USD",
             side = "BUY",
             quantity = 100.0,
             price = 200.0,
-            contractMultiplier = 1.0,
-            tradeTimestamp = "2026-03-21T09:21:00Z",
             settlementDate = "2026-03-24",
-            strategy = "Main",
-            book = "MAIN",
+            book = "Equity",
             desk = "Equities"
         });
 
@@ -82,6 +86,8 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
 
         using var scope = _factory.Services.CreateScope();
         var db = scope.ServiceProvider.GetRequiredService<HelixContext>();
-        Assert.Single(db.Trades.Where(x => x.PortfolioId == "PF-TEST"));
+        var trade = Assert.Single(db.Trades.Where(x => x.PortfolioId == "PF-TEST"));
+        Assert.Equal("Apple Inc", trade.InstrumentName);
+        Assert.Null(trade.Notional);
     }
 }

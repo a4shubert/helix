@@ -18,7 +18,7 @@ function SidebarContent<K extends string>({
   groupName: string;
 }) {
   return (
-    <div className="flex h-full flex-col gap-4 p-4 [background:var(--color-bg)]">
+    <div className="flex flex-col gap-4 p-4 [background:var(--color-bg)]">
       <div className="text-xl font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]">
         Portfolios
       </div>
@@ -59,7 +59,7 @@ export function PortfolioSidebar<K extends string>({
   onSelect: (key: K) => void;
 }) {
   return (
-    <aside className="h-full w-[15vw] min-w-[280px] shrink-0 rounded-lg border border-[color:var(--color-border)] [background:var(--color-card)]">
+    <aside className="sticky top-0 self-start w-[15vw] min-w-[280px] shrink-0 rounded-lg border border-[color:var(--color-border)] [background:var(--color-card)]">
       <SidebarContent
         portfolios={portfolios}
         selected={selected}

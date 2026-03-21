@@ -578,11 +578,9 @@ Below is the recommended prototype relational model for `helix-store`.
 | side            | TEXT          | BUY/SELL                                   |
 | quantity        | REAL          | Trade quantity                             |
 | price           | REAL          | Trade price                                |
-| contract_multiplier | REAL      | Contract size / lot multiplier             |
 | notional        | REAL          | Trade notional                             |
 | trade_timestamp | DATETIME      | Exact trade timestamp                      |
 | settlement_date | DATE nullable | Settlement date                            |
-| strategy        | TEXT nullable | Strategy classification                    |
 | book            | TEXT nullable | Book identifier                            |
 | desk            | TEXT nullable | Trading desk                               |
 | status          | TEXT          | pending/accepted/rejected/processed/failed |
@@ -604,17 +602,12 @@ Below is the recommended prototype relational model for `helix-store`.
 | quantity            | REAL          | Net position quantity                            |
 | direction           | TEXT          | LONG / SHORT                                     |
 | average_cost        | REAL          | Average cost / average price                     |
-| contract_multiplier | REAL          | Contract size / lot multiplier                   |
-| trade_date          | DATE          | Position open date or earliest contributing trade |
 | last_update_ts      | DATETIME      | Latest trade-driven position update              |
 | market_price        | REAL nullable | Latest market price                              |
 | market_data_ts      | DATETIME nullable | Timestamp of market price snapshot          |
-| fx_rate             | REAL nullable | FX rate into portfolio base currency             |
 | notional            | REAL nullable | Cost-basis notional                              |
 | market_value        | REAL nullable | Current market value                             |
-| sector              | TEXT nullable | Sector classification                            |
-| region              | TEXT nullable | Region classification                            |
-| strategy            | TEXT nullable | Strategy / book classification                   |
+| book                | TEXT nullable | Book classification                              |
 | desk                | TEXT nullable | Trading desk                                     |
 | as_of_ts            | DATETIME      | Snapshot timestamp                               |
 | source_event_id     | TEXT nullable | Traceability                                     |

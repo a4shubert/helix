@@ -19,28 +19,24 @@ function normalizePosition(
   portfolioId: string,
   position: PortfolioPosition | Record<string, unknown>,
 ): PortfolioPosition {
+  const raw = position as Record<string, unknown>;
   return {
-    portfolioId: String(position.portfolioId ?? portfolioId),
-    positionId: String(position.positionId ?? position.position_id ?? ""),
-    instrumentId: String(position.instrumentId ?? position.instrument_id ?? ""),
-    instrumentName: String(position.instrumentName ?? position.instrument_name ?? ""),
-    assetClass: String(position.assetClass ?? position.asset_class ?? ""),
-    currency: String(position.currency ?? ""),
-    quantity: Number(position.quantity ?? 0),
-    direction: String(position.direction ?? "LONG") as "LONG" | "SHORT",
-    averageCost: Number(position.averageCost ?? position.average_cost ?? 0),
-    contractMultiplier: Number(position.contractMultiplier ?? position.contract_multiplier ?? 1),
-    tradeDate: String(position.tradeDate ?? position.trade_date ?? ""),
-    lastUpdateTs: String(position.lastUpdateTs ?? position.last_update_ts ?? ""),
-    marketPrice: Number(position.marketPrice ?? position.market_price ?? 0),
-    marketDataTs: String(position.marketDataTs ?? position.market_data_ts ?? ""),
-    fxRate: Number(position.fxRate ?? position.fx_rate ?? 0),
-    notional: Number(position.notional ?? 0),
-    marketValue: Number(position.marketValue ?? position.market_value ?? 0),
-    sector: String(position.sector ?? ""),
-    region: String(position.region ?? ""),
-    strategy: String(position.strategy ?? ""),
-    desk: String(position.desk ?? ""),
+    portfolioId: String(raw.portfolioId ?? portfolioId),
+    positionId: String(raw.positionId ?? raw.position_id ?? ""),
+    instrumentId: String(raw.instrumentId ?? raw.instrument_id ?? ""),
+    instrumentName: String(raw.instrumentName ?? raw.instrument_name ?? ""),
+    assetClass: String(raw.assetClass ?? raw.asset_class ?? ""),
+    currency: String(raw.currency ?? ""),
+    quantity: Number(raw.quantity ?? 0),
+    direction: String(raw.direction ?? "LONG") as "LONG" | "SHORT",
+    averageCost: Number(raw.averageCost ?? raw.average_cost ?? 0),
+    lastUpdateTs: String(raw.lastUpdateTs ?? raw.last_update_ts ?? ""),
+    marketPrice: Number(raw.marketPrice ?? raw.market_price ?? 0),
+    marketDataTs: String(raw.marketDataTs ?? raw.market_data_ts ?? ""),
+    notional: Number(raw.notional ?? 0),
+    marketValue: Number(raw.marketValue ?? raw.market_value ?? 0),
+    book: String(raw.book ?? ""),
+    desk: String(raw.desk ?? ""),
   };
 }
 
@@ -78,7 +74,6 @@ const columnDefs: ColDef[] = [
     type: "numericColumn",
     valueFormatter: formatDecimalCell,
   },
-  { field: "tradeDate", headerName: "Trade Date", minWidth: 135 },
   { field: "lastUpdateTs", headerName: "Last Update Timestamp", minWidth: 210 },
   {
     field: "marketPrice",
@@ -88,16 +83,7 @@ const columnDefs: ColDef[] = [
     valueFormatter: formatDecimalCell,
   },
   { field: "marketDataTs", headerName: "Market Data Timestamp", minWidth: 210 },
-  {
-    field: "fxRate",
-    headerName: "FX Rate",
-    minWidth: 120,
-    type: "numericColumn",
-    valueFormatter: formatDecimalCell,
-  },
-  { field: "sector", headerName: "Sector", minWidth: 140 },
-  { field: "region", headerName: "Region", minWidth: 120 },
-  { field: "strategy", headerName: "Strategy / Book", minWidth: 170 },
+  { field: "book", headerName: "Book", minWidth: 170 },
   { field: "desk", headerName: "Desk", minWidth: 130 },
 ];
 
@@ -108,10 +94,6 @@ const defaultColDef: ColDef = {
   valueFormatter: (params) => {
     if (typeof params.value !== "number") {
       if (typeof params.value === "string") {
-        if (params.column.getColId() === "tradeDate") {
-          return new Date(`${params.value}T00:00:00Z`).toLocaleDateString("en-GB");
-        }
-
         if (
           params.column.getColId() === "lastUpdateTs" ||
           params.column.getColId() === "marketDataTs"
@@ -125,8 +107,7 @@ const defaultColDef: ColDef = {
 
     const isPriceColumn =
       params.column.getColId() === "averageCost" ||
-      params.column.getColId() === "marketPrice" ||
-      params.column.getColId() === "fxRate";
+      params.column.getColId() === "marketPrice";
 
     return isPriceColumn ? formatDecimal(params.value) : formatInteger(params.value);
   },

@@ -36,7 +36,14 @@ class StoreGateway(Protocol):
     ) -> PersistedAnalytics:
         """Persist recomputed positions, P&L, and risk snapshots."""
 
-    def update_trade_status(self, trade_id: str, status: str, *, updated_at: datetime) -> None:
+    def update_trade_status(
+        self,
+        trade_id: str,
+        status: str,
+        *,
+        updated_at: datetime,
+        notional: float | None = None,
+    ) -> None:
         """Update the processing lifecycle status of a trade."""
 
 

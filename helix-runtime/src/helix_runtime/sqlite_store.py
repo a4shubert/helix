@@ -103,8 +103,8 @@ class SqliteHelixStore:
         if not instruments:
             return {}
 
-        instrument_ids = sorted(instruments)
-        placeholders = ", ".join("?" for _ in instrument_ids)
+        snapshot_ids = sorted(set(instruments))
+        placeholders = ", ".join("?" for _ in snapshot_ids)
         with self._connect() as connection:
             market_rows = connection.execute(
                 f"""
@@ -113,17 +113,17 @@ class SqliteHelixStore:
                 WHERE instrument_id IN ({placeholders})
                 ORDER BY as_of_ts DESC
                 """,
-                instrument_ids,
+                snapshot_ids,
             ).fetchall()
             position_rows = connection.execute(
                 f"""
-                SELECT instrument_id, market_price, fx_rate, market_data_ts, as_of_ts
+                SELECT instrument_id, market_price, market_data_ts, as_of_ts
                 FROM position_snapshot
                 WHERE portfolio_id = ?
-                  AND instrument_id IN ({placeholders})
+                  AND instrument_id IN ({", ".join("?" for _ in instruments)})
                 ORDER BY as_of_ts DESC, last_update_ts DESC
                 """,
-                [portfolio_id, *instrument_ids],
+                [portfolio_id, *sorted(instruments)],
             ).fetchall()
 
         latest_fields: dict[str, dict[str, float]] = defaultdict(dict)
@@ -136,14 +136,11 @@ class SqliteHelixStore:
             latest_market_ts.setdefault(instrument_id, _parse_datetime(row["as_of_ts"]))
 
         latest_position_price: dict[str, float] = {}
-        latest_fx_rate: dict[str, float] = {}
         latest_position_ts: dict[str, datetime | None] = {}
         for row in position_rows:
             instrument_id = str(row["instrument_id"])
             if instrument_id not in latest_position_price and row["market_price"] is not None:
                 latest_position_price[instrument_id] = float(row["market_price"])
-            if instrument_id not in latest_fx_rate and row["fx_rate"] is not None:
-                latest_fx_rate[instrument_id] = float(row["fx_rate"])
             latest_position_ts.setdefault(
                 instrument_id,
                 _parse_datetime(row["market_data_ts"] or row["as_of_ts"]),
@@ -152,9 +149,10 @@ class SqliteHelixStore:
         market_inputs: dict[str, MarketInput] = {}
         for instrument_id, trade in instruments.items():
             fields = latest_fields.get(instrument_id, {})
-            market_price = fields.get("price", latest_position_price.get(instrument_id))
-            if market_price is None:
-                raise KeyError(f"Missing market price for instrument '{instrument_id}'.")
+            market_price = fields.get(
+                "last_price",
+                fields.get("price", latest_position_price.get(instrument_id, trade.price)),
+            )
 
             risk_weight = fields.get(
                 "vol_1m",
@@ -163,9 +161,11 @@ class SqliteHelixStore:
             market_inputs[instrument_id] = MarketInput(
                 instrument_id=instrument_id,
                 market_price=market_price,
-                fx_rate=latest_fx_rate.get(instrument_id, 1.0),
                 risk_weight=risk_weight,
-                market_data_timestamp=latest_market_ts.get(instrument_id) or latest_position_ts.get(instrument_id),
+                market_data_timestamp=
+                latest_market_ts.get(instrument_id)
+                or latest_position_ts.get(instrument_id)
+                or trade.trade_timestamp,
             )
 
         return market_inputs
@@ -189,11 +189,11 @@ class SqliteHelixStore:
                     """
                     INSERT OR REPLACE INTO position_snapshot (
                       snapshot_id, portfolio_id, position_id, instrument_id, instrument_name,
-                      asset_class, currency, quantity, direction, average_cost, contract_multiplier,
-                      trade_date, last_update_ts, market_price, market_data_ts, fx_rate, notional,
-                      market_value, sector, region, strategy, desk, as_of_ts, source_event_id
+                      asset_class, currency, quantity, direction, average_cost,
+                      last_update_ts, market_price, market_data_ts, notional,
+                      market_value, book, desk, as_of_ts, source_event_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         snapshot_id,
@@ -206,17 +206,12 @@ class SqliteHelixStore:
                         position.quantity,
                         position.direction,
                         position.average_cost,
-                        position.contract_multiplier,
-                        position.trade_date.isoformat(),
                         _isoformat_utc(position.last_update_ts),
                         position.market_price,
                         _isoformat_utc(position.market_data_ts) if position.market_data_ts else None,
-                        position.fx_rate,
                         position.notional,
                         position.market_value,
-                        position.sector,
-                        position.region,
-                        position.strategy,
+                        position.book,
                         position.desk,
                         _isoformat_utc(valuation_ts),
                         source_event_id,
@@ -276,15 +271,22 @@ class SqliteHelixStore:
             market_data_as_of_ts=market_data_as_of_ts,
         )
 
-    def update_trade_status(self, trade_id: str, status: str, *, updated_at: datetime) -> None:
+    def update_trade_status(
+        self,
+        trade_id: str,
+        status: str,
+        *,
+        updated_at: datetime,
+        notional: float | None = None,
+    ) -> None:
         with self._connect() as connection:
             connection.execute(
                 """
                 UPDATE trades
-                SET status = ?, updated_at = ?
+                SET status = ?, updated_at = ?, notional = COALESCE(?, notional)
                 WHERE trade_id = ?
                 """,
-                (status, _isoformat_utc(updated_at), trade_id),
+                (status, _isoformat_utc(updated_at), notional, trade_id),
             )
             connection.commit()
 
@@ -301,10 +303,8 @@ class SqliteHelixStore:
             side=str(row["side"]),
             quantity=float(row["quantity"]),
             price=float(row["price"]),
-            contract_multiplier=float(row["contract_multiplier"]),
             trade_timestamp=_parse_datetime(row["trade_timestamp"]),
             settlement_date=_parse_date(row["settlement_date"]),
-            strategy=row["strategy"],
             book=row["book"],
             desk=row["desk"],
             status=str(row["status"]),

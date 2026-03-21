@@ -12,10 +12,15 @@ if [[ -f "${SCRIPT_DIR}/env.sh" ]]; then
   source "${SCRIPT_DIR}/env.sh"
 fi
 
+DOTNET_BIN="${HOME}/.dotnet/dotnet"
+if [[ ! -x "${DOTNET_BIN}" ]]; then
+  DOTNET_BIN="$(command -v dotnet)"
+fi
+
 if [ ! -d "${PUBLISH_DIR}" ]; then
   echo "[rest_start_prod] publish directory not found at ${PUBLISH_DIR}. Run scripts/linux/rest_build.sh first."
   exit 1
 fi
 
 cd "${PUBLISH_DIR}"
-dotnet HelixRest.dll
+"${DOTNET_BIN}" HelixRest.dll

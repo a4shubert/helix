@@ -18,28 +18,30 @@ import { formatDecimal, formatInteger } from "@/lib/format/number";
 import type { PortfolioTrade } from "@/lib/mock/trades";
 
 function normalizeTrade(trade: PortfolioTrade | Record<string, unknown>): PortfolioTrade {
+  const raw = trade as Record<string, unknown>;
   return {
-    trade_id: String(trade.trade_id ?? trade.tradeId ?? ""),
-    portfolio_id: String(trade.portfolio_id ?? trade.portfolioId ?? ""),
-    position_id: String(trade.position_id ?? trade.positionId ?? ""),
-    instrument_id: String(trade.instrument_id ?? trade.instrumentId ?? ""),
-    instrument_name: String(trade.instrument_name ?? trade.instrumentName ?? ""),
-    asset_class: String(trade.asset_class ?? trade.assetClass ?? ""),
-    currency: String(trade.currency ?? ""),
-    side: String(trade.side ?? ""),
-    quantity: Number(trade.quantity ?? 0),
-    price: Number(trade.price ?? 0),
-    contract_multiplier: Number(trade.contract_multiplier ?? trade.contractMultiplier ?? 1),
-    notional: Number(trade.notional ?? 0),
-    trade_timestamp: String(trade.trade_timestamp ?? trade.tradeTimestamp ?? ""),
-    settlement_date: String(trade.settlement_date ?? trade.settlementDate ?? ""),
-    strategy: String(trade.strategy ?? ""),
-    book: String(trade.book ?? ""),
-    desk: String(trade.desk ?? ""),
-    status: String(trade.status ?? ""),
-    version: Number(trade.version ?? 1),
-    created_at: String(trade.created_at ?? trade.createdAt ?? ""),
-    updated_at: String(trade.updated_at ?? trade.updatedAt ?? ""),
+    trade_id: String(raw.trade_id ?? raw.tradeId ?? ""),
+    portfolio_id: String(raw.portfolio_id ?? raw.portfolioId ?? ""),
+    position_id: String(raw.position_id ?? raw.positionId ?? ""),
+    instrument_id: String(raw.instrument_id ?? raw.instrumentId ?? ""),
+    instrument_name: String(raw.instrument_name ?? raw.instrumentName ?? ""),
+    asset_class: String(raw.asset_class ?? raw.assetClass ?? ""),
+    currency: String(raw.currency ?? ""),
+    side: String(raw.side ?? ""),
+    quantity: Number(raw.quantity ?? 0),
+    price: Number(raw.price ?? 0),
+    notional:
+      raw.notional === null || raw.notional === undefined
+        ? null
+        : Number(raw.notional),
+    trade_timestamp: String(raw.trade_timestamp ?? raw.tradeTimestamp ?? ""),
+    settlement_date: String(raw.settlement_date ?? raw.settlementDate ?? ""),
+    book: String(raw.book ?? ""),
+    desk: String(raw.desk ?? ""),
+    status: String(raw.status ?? ""),
+    version: Number(raw.version ?? 1),
+    created_at: String(raw.created_at ?? raw.createdAt ?? ""),
+    updated_at: String(raw.updated_at ?? raw.updatedAt ?? ""),
   };
 }
 
@@ -79,7 +81,6 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
   },
   { field: "trade_timestamp", headerName: "Trade Timestamp", minWidth: 220 },
   { field: "settlement_date", headerName: "Settlement Date", minWidth: 155 },
-  { field: "strategy", headerName: "Strategy", minWidth: 160 },
   { field: "book", headerName: "Book", minWidth: 160 },
   { field: "desk", headerName: "Desk", minWidth: 140 },
   { field: "status", headerName: "Status", minWidth: 120 },
@@ -149,7 +150,7 @@ export function PortfolioTradesTable({
   trades: PortfolioTrade[];
   collapsed: boolean;
   onToggle: () => void;
-  onSaveTrade: (trade: CreateTradeRequest) => Promise<void>;
+  onSaveTrade: (trade: CreateTradeRequest, amendTradeId?: string) => Promise<void>;
 }) {
   const gridApiRef = useRef<GridApi<PortfolioTrade> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
@@ -440,11 +441,9 @@ export function PortfolioTradesTable({
           }}
           gridOptions={{
             rowSelection: {
-              mode: "multiRow",
-              enableSelectionWithoutKeys: true,
+              mode: "singleRow",
               enableClickSelection: false,
               checkboxes: false,
-              headerCheckbox: false,
             },
             suppressColumnVirtualisation: true,
           }}
@@ -457,7 +456,7 @@ export function PortfolioTradesTable({
         trade={selectedTrade}
         onClose={() => setIsFormOpen(false)}
         onSave={async (trade) => {
-          await onSaveTrade(trade);
+          await onSaveTrade(trade, selectedTrade?.trade_id);
           setIsFormOpen(false);
           setSelectedTrade(null);
           setSelectedCount(0);

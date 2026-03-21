@@ -12,11 +12,9 @@ public class TradeEntity
     public required string Side { get; set; }
     public double Quantity { get; set; }
     public double Price { get; set; }
-    public double ContractMultiplier { get; set; }
-    public double Notional { get; set; }
+    public double? Notional { get; set; }
     public DateTime TradeTimestamp { get; set; }
     public DateOnly? SettlementDate { get; set; }
-    public string? Strategy { get; set; }
     public string? Book { get; set; }
     public string? Desk { get; set; }
     public required string Status { get; set; }

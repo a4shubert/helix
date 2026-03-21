@@ -31,11 +31,11 @@ def main() -> None:
             """
             INSERT INTO trades (
               trade_id, portfolio_id, position_id, instrument_id, instrument_name,
-              asset_class, currency, side, quantity, price, contract_multiplier, notional, trade_timestamp,
-              settlement_date, strategy, book, desk, status, version,
+              asset_class, currency, side, quantity, price, notional, trade_timestamp,
+              settlement_date, book, desk, status, version,
               created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             [
                 (
@@ -45,15 +45,13 @@ def main() -> None:
                     trade["instrument_id"],
                     trade["instrument_name"],
                     trade["asset_class"],
-                    trade["currency"],
+                    "USD",
                     trade["side"],
                     trade["quantity"],
                     trade["price"],
-                    trade["contract_multiplier"],
                     trade["notional"],
                     trade["trade_timestamp"],
                     trade["settlement_date"],
-                    trade["strategy"],
                     trade["book"],
                     trade["desk"],
                     trade["status"],

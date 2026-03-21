@@ -5,18 +5,21 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import sqlite3
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Sequence
+from uuid import uuid4
 
 from .consumers import KafkaTradeCreatedConsumer, RabbitMqTaskWorker
+from .brokers import RabbitMqTaskPublisher
 from .config import load_kafka_config_from_env, load_rabbitmq_config_from_env
 from .publisher import InMemoryEventPublisher, LoggingEventPublisher
 from .service import RuntimeService, RuntimeServiceConfig
 from .sqlite_store import SqliteHelixStore
 from .models import TradeCreatedEvent
 from .processor import TradeCreatedProcessor
-from .events import build_trade_created_payload, parse_trade_created_payload
+from .events import RabbitMqTask, build_trade_created_payload, parse_trade_created_payload
 
 
 def _parse_datetime(raw: str) -> datetime:
@@ -135,6 +138,21 @@ def _build_parser() -> argparse.ArgumentParser:
         "--db-path",
         default=os.environ.get("HELIX_DB_PATH", "helix-store/helix.db"),
         help="Path to the Helix SQLite database.",
+    )
+
+    replay = subparsers.add_parser(
+        "replay-trades",
+        help="Clear live snapshots and rebuild them by replaying all trades through Kafka and RabbitMQ.",
+    )
+    replay.add_argument(
+        "--db-path",
+        default=os.environ.get("HELIX_DB_PATH", "helix-store/helix.db"),
+        help="Path to the Helix SQLite database.",
+    )
+    replay.add_argument(
+        "--skip-rabbitmq",
+        action="store_true",
+        help="Only publish trade.created events to Kafka and skip RabbitMQ full revalues.",
     )
 
     return parser
@@ -262,6 +280,112 @@ def _run_service(args: argparse.Namespace) -> int:
     return 0
 
 
+def _reset_live_snapshots(db_path: Path) -> dict[str, int]:
+    with sqlite3.connect(db_path) as connection:
+        connection.execute("PRAGMA foreign_keys = ON;")
+        counts = {
+            "position_snapshot": connection.execute("SELECT COUNT(*) FROM position_snapshot").fetchone()[0],
+            "pnl_snapshot": connection.execute("SELECT COUNT(*) FROM pnl_snapshot").fetchone()[0],
+            "risk_snapshot": connection.execute("SELECT COUNT(*) FROM risk_snapshot").fetchone()[0],
+        }
+
+        connection.execute("DELETE FROM position_snapshot")
+        connection.execute("DELETE FROM pnl_snapshot")
+        connection.execute("DELETE FROM risk_snapshot")
+        connection.execute(
+            """
+            UPDATE trades
+            SET status = 'accepted', updated_at = created_at
+            WHERE status IN ('accepted', 'processed')
+            """
+        )
+        connection.commit()
+
+    return counts
+
+
+def _load_replay_trades(db_path: Path) -> list[tuple[str, str, datetime]]:
+    with sqlite3.connect(db_path) as connection:
+        rows = connection.execute(
+            """
+            SELECT trade_id, portfolio_id, trade_timestamp
+            FROM trades
+            WHERE status IN ('accepted', 'processed')
+            ORDER BY trade_timestamp, created_at, trade_id
+            """
+        ).fetchall()
+
+    return [
+        (str(trade_id), str(portfolio_id), _parse_datetime(str(trade_timestamp)))
+        for trade_id, portfolio_id, trade_timestamp in rows
+    ]
+
+
+def _replay_trades(args: argparse.Namespace) -> int:
+    db_path = Path(args.db_path).resolve()
+    kafka_config = load_kafka_config_from_env()
+    rabbitmq_config = load_rabbitmq_config_from_env()
+
+    try:
+        from kafka import KafkaProducer
+    except ImportError as exc:
+        raise RuntimeError(
+            "Trade replay requires 'kafka-python'. Install helix-runtime with broker extras."
+        ) from exc
+
+    cleared_counts = _reset_live_snapshots(db_path)
+    trades = _load_replay_trades(db_path)
+
+    producer = KafkaProducer(
+        bootstrap_servers=kafka_config.bootstrap_servers.split(","),
+        value_serializer=lambda value: json.dumps(value).encode("utf-8"),
+    )
+
+    for trade_id, portfolio_id, occurred_at in trades:
+        payload = build_trade_created_payload(
+            TradeCreatedEvent(
+                trade_id=trade_id,
+                portfolio_id=portfolio_id,
+                occurred_at=occurred_at,
+            )
+        )
+        producer.send(kafka_config.trade_created_topic, value=payload)
+
+    producer.flush()
+    producer.close()
+
+    queued_revalues: list[dict[str, object]] = []
+    if not args.skip_rabbitmq:
+        task_publisher = RabbitMqTaskPublisher(rabbitmq_config)
+        for portfolio_id in sorted({portfolio_id for _, portfolio_id, _ in trades}):
+            task = RabbitMqTask(
+                task_id=f"TASK-{uuid4().hex[:12].upper()}",
+                task_type="portfolio.full_revalue",
+                portfolio_id=portfolio_id,
+                requested_at=datetime.now(UTC),
+            )
+            queued_revalues.append(
+                task_publisher.publish_task(
+                    rabbitmq_config.portfolio_full_revalue_queue,
+                    task,
+                ).payload
+            )
+
+    print(
+        json.dumps(
+            {
+                "cleared": cleared_counts,
+                "replayed_trade_count": len(trades),
+                "kafka_topic": kafka_config.trade_created_topic,
+                "rabbitmq_queue": None if args.skip_rabbitmq else rabbitmq_config.portfolio_full_revalue_queue,
+                "revalue_tasks": queued_revalues,
+            },
+            indent=2,
+        )
+    )
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = _build_parser()
     args = parser.parse_args(argv)
@@ -278,6 +402,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return _run_rabbitmq_worker(args)
     if args.command == "run-service":
         return _run_service(args)
+    if args.command == "replay-trades":
+        return _replay_trades(args)
 
     parser.error(f"Unsupported command: {args.command}")
     return 2

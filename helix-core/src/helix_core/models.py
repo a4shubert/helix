@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 
 
 @dataclass(frozen=True)
@@ -18,10 +18,8 @@ class Trade:
     side: str
     quantity: float
     price: float
-    contract_multiplier: float
     trade_timestamp: datetime
     settlement_date: date | None
-    strategy: str | None
     book: str | None
     desk: str | None
     status: str
@@ -32,7 +30,6 @@ class Trade:
 class MarketInput:
     instrument_id: str
     market_price: float
-    fx_rate: float = 1.0
     risk_weight: float = 0.2
     market_data_timestamp: datetime | None = None
 
@@ -48,18 +45,13 @@ class PositionSnapshot:
     quantity: float
     direction: str
     average_cost: float
-    contract_multiplier: float
-    trade_date: date
     last_update_ts: datetime
     market_price: float
     market_data_ts: datetime | None
-    fx_rate: float
     notional: float
     market_value: float
     unrealized_pnl: float
-    sector: str | None
-    region: str | None
-    strategy: str | None
+    book: str | None
     desk: str | None
 
 

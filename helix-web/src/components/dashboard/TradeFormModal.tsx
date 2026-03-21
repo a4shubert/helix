@@ -2,57 +2,41 @@
 
 import type { FormEvent } from "react";
 import { useEffect, useMemo, useState } from "react";
-import type { CreateTradeRequest } from "@/lib/api/helix";
-import { formatDecimal } from "@/lib/format/number";
+import {
+  fetchTradeFormOptions,
+  type CreateTradeRequest,
+  type TradeFormInstrumentOption,
+  type TradeFormOptionsResponse,
+} from "@/lib/api/helix";
 import type { PortfolioTrade } from "@/lib/mock/trades";
 
 type TradeFormValues = {
-  trade_id: string;
-  position_id: string;
   instrument_id: string;
-  instrument_name: string;
-  asset_class: string;
-  currency: string;
   side: string;
   quantity: string;
   price: string;
-  contract_multiplier: string;
-  trade_timestamp: string;
   settlement_date: string;
-  strategy: string;
   book: string;
   desk: string;
-  status: string;
 };
 
-function createGeneratedTradeId(portfolioId: string): string {
-  return `TRD-${portfolioId}-${Date.now()}`;
-}
-
-function createGeneratedPositionId(portfolioId: string): string {
-  return `${portfolioId}-POS-${Date.now()}`;
-}
-
-function toFormValues(portfolioId: string, trade?: PortfolioTrade | null): TradeFormValues {
+function toFormValues(_portfolioId: string, trade?: PortfolioTrade | null): TradeFormValues {
   return {
-    trade_id: trade ? createGeneratedTradeId(portfolioId) : createGeneratedTradeId(portfolioId),
-    position_id: trade?.position_id ?? createGeneratedPositionId(portfolioId),
     instrument_id: trade?.instrument_id ?? "",
-    instrument_name: trade?.instrument_name ?? "",
-    asset_class: trade?.asset_class ?? "",
-    currency: trade?.currency ?? "USD",
     side: trade?.side ?? "BUY",
     quantity: trade ? String(trade.quantity) : "",
     price: trade ? String(trade.price) : "",
-    contract_multiplier: trade ? String(trade.contract_multiplier) : "1",
-    trade_timestamp: trade?.trade_timestamp ?? "2026-03-21T09:30:00Z",
     settlement_date: trade?.settlement_date ?? "2026-03-23",
-    strategy: trade?.strategy ?? "",
     book: trade?.book ?? "",
     desk: trade?.desk ?? "",
-    status: "accepted",
   };
 }
+
+const emptyOptions: TradeFormOptionsResponse = {
+  instruments: [],
+  books: [],
+  desks: [],
+};
 
 export function TradeFormModal({
   open,
@@ -68,7 +52,10 @@ export function TradeFormModal({
   onSave: (trade: CreateTradeRequest) => Promise<void>;
 }) {
   const [form, setForm] = useState<TradeFormValues>(() => toFormValues(portfolioId, trade));
+  const [options, setOptions] = useState<TradeFormOptionsResponse>(emptyOptions);
+  const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -76,14 +63,55 @@ export function TradeFormModal({
     }
     setForm(toFormValues(portfolioId, trade));
     setIsSaving(false);
+    setLoadError(null);
   }, [open, portfolioId, trade]);
 
-  const computedNotional = useMemo(() => {
-    const quantity = Number(form.quantity) || 0;
-    const price = Number(form.price) || 0;
-    const contractMultiplier = Number(form.contract_multiplier) || 0;
-    return quantity * price * contractMultiplier;
-  }, [form.contract_multiplier, form.price, form.quantity]);
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+
+    let isCancelled = false;
+    setIsLoadingOptions(true);
+    setLoadError(null);
+
+    void fetchTradeFormOptions()
+      .then((response) => {
+        if (isCancelled) {
+          return;
+        }
+        setOptions(response);
+        setForm((current) => {
+          if (current.instrument_id || response.instruments.length === 0) {
+            return current;
+          }
+          return {
+            ...current,
+            instrument_id: response.instruments[0].instrumentId,
+          };
+        });
+      })
+      .catch((error) => {
+        if (isCancelled) {
+          return;
+        }
+        setLoadError(error instanceof Error ? error.message : "Failed to load trade form options.");
+      })
+      .finally(() => {
+        if (!isCancelled) {
+          setIsLoadingOptions(false);
+        }
+      });
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [open]);
+
+  const selectedInstrument = useMemo<TradeFormInstrumentOption | null>(
+    () => options.instruments.find((instrument) => instrument.instrumentId === form.instrument_id) ?? null,
+    [form.instrument_id, options.instruments],
+  );
 
   if (!open) {
     return null;
@@ -95,31 +123,22 @@ export function TradeFormModal({
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (!selectedInstrument) {
+      return;
+    }
 
     const quantity = Number(form.quantity) || 0;
     const price = Number(form.price) || 0;
-    const contractMultiplier = Number(form.contract_multiplier) || 1;
-    const normalizedPositionId = form.position_id.trim().startsWith(`${portfolioId}-`)
-      ? form.position_id.trim()
-      : `${portfolioId}-${form.position_id.trim()}`;
 
     setIsSaving(true);
     try {
       await onSave({
-        tradeId: form.trade_id.trim(),
         portfolioId,
-        positionId: normalizedPositionId,
-        instrumentId: form.instrument_id.trim(),
-        instrumentName: form.instrument_name.trim(),
-        assetClass: form.asset_class.trim(),
-        currency: form.currency.trim().toUpperCase(),
+        instrumentId: selectedInstrument.instrumentId,
         side: form.side,
         quantity,
         price,
-        contractMultiplier,
-        tradeTimestamp: form.trade_timestamp,
         settlementDate: form.settlement_date,
-        strategy: form.strategy.trim(),
         book: form.book.trim(),
         desk: form.desk.trim(),
         version: trade ? trade.version + 1 : 1,
@@ -149,63 +168,38 @@ export function TradeFormModal({
           </button>
         </div>
 
+        {loadError && (
+          <div className="mb-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+            {loadError}
+          </div>
+        )}
+
         <form className="space-y-5" onSubmit={handleSubmit}>
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="space-y-2">
-              <span className="text-sm text-white">Trade ID</span>
-              <input
-                value={form.trade_id}
-                onChange={(event) => updateField("trade_id", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-                readOnly
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm text-white">Position ID</span>
-              <input
-                value={form.position_id}
-                onChange={(event) => updateField("position_id", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-                readOnly={!trade}
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm text-white">Instrument ID</span>
-              <input
+            <label className="space-y-2 xl:col-span-4">
+              <span className="text-sm text-white">Instrument</span>
+              <select
                 value={form.instrument_id}
                 onChange={(event) => updateField("instrument_id", event.target.value)}
                 className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
                 required
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm text-white">Instrument Name</span>
-              <input
-                value={form.instrument_name}
-                onChange={(event) => updateField("instrument_name", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm text-white">Asset Class</span>
-              <input
-                value={form.asset_class}
-                onChange={(event) => updateField("asset_class", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
+                disabled={isLoadingOptions || options.instruments.length === 0}
+              >
+                <option value="">Select instrument</option>
+                {options.instruments.map((instrument) => (
+                  <option key={instrument.instrumentId} value={instrument.instrumentId}>
+                    {instrument.instrumentName}
+                  </option>
+                ))}
+              </select>
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-white">Currency</span>
+              <span className="text-sm text-white">Asset Class</span>
               <input
-                value={form.currency}
-                onChange={(event) => updateField("currency", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
+                value={selectedInstrument?.assetClass ?? ""}
+                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none"
+                readOnly
               />
             </label>
             <label className="space-y-2">
@@ -243,32 +237,6 @@ export function TradeFormModal({
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-white">Contract Multiplier</span>
-              <input
-                type="number"
-                step="any"
-                value={form.contract_multiplier}
-                onChange={(event) => updateField("contract_multiplier", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
-            </label>
-            <label className="space-y-2">
-              <span className="text-sm text-white">Trade Timestamp</span>
-              <input
-                type="datetime-local"
-                value={form.trade_timestamp.replace("Z", "")}
-                onChange={(event) =>
-                  updateField(
-                    "trade_timestamp",
-                    event.target.value.endsWith("Z") ? event.target.value : `${event.target.value}Z`,
-                  )
-                }
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
-            </label>
-            <label className="space-y-2">
               <span className="text-sm text-white">Settlement Date</span>
               <input
                 type="date"
@@ -279,63 +247,53 @@ export function TradeFormModal({
               />
             </label>
             <label className="space-y-2">
-              <span className="text-sm text-white">Status</span>
-              <input
-                value={form.status}
-                onChange={(event) => updateField("status", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
-            </label>
-
-            <label className="space-y-2">
-              <span className="text-sm text-white">Strategy</span>
-              <input
-                value={form.strategy}
-                onChange={(event) => updateField("strategy", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
-            </label>
-            <label className="space-y-2">
               <span className="text-sm text-white">Book</span>
-              <input
+              <select
                 value={form.book}
                 onChange={(event) => updateField("book", event.target.value)}
                 className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
                 required
-              />
+                disabled={isLoadingOptions}
+              >
+                <option value="">Select book</option>
+                {options.books.map((book) => (
+                  <option key={book} value={book}>
+                    {book}
+                  </option>
+                ))}
+              </select>
             </label>
             <label className="space-y-2">
               <span className="text-sm text-white">Desk</span>
-              <input
+              <select
                 value={form.desk}
                 onChange={(event) => updateField("desk", event.target.value)}
                 className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
                 required
-              />
+                disabled={isLoadingOptions}
+              >
+                <option value="">Select desk</option>
+                {options.desks.map((desk) => (
+                  <option key={desk} value={desk}>
+                    {desk}
+                  </option>
+                ))}
+              </select>
             </label>
-            <div className="space-y-2">
-              <span className="text-sm text-white">Computed Notional</span>
-              <div className="rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white">
-                {formatDecimal(computedNotional)}
-              </div>
-            </div>
           </div>
 
-          <div className="flex justify-end gap-3">
+          <div className="flex items-center justify-end gap-3 border-t border-[color:var(--color-border)] pt-5">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSaving}
-              className="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-white hover:border-[color:var(--color-accent)]"
+              className="rounded-lg border border-[color:var(--color-border)] px-4 py-2 text-sm text-white hover:border-[color:var(--color-accent)]"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSaving}
-              className="rounded-lg border border-[color:var(--color-accent)] bg-[color:var(--color-accent)]/10 px-4 py-2 text-[color:var(--color-accent)] hover:bg-[color:var(--color-accent)]/20"
+              disabled={isSaving || isLoadingOptions || !selectedInstrument}
+              className="rounded-lg bg-[color:var(--color-accent)] px-4 py-2 text-sm font-medium text-slate-950 disabled:opacity-50"
             >
               {isSaving ? "Saving..." : "Save"}
             </button>

@@ -22,6 +22,40 @@ export function Header() {
             >
               Documentation
             </a>
+            <div className="group relative">
+              <button
+                type="button"
+                className="rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-2xl text-[color:var(--color-text)] transition-[text-decoration-color] hover:underline hover:decoration-2 hover:underline-offset-4 hover:decoration-[var(--color-accent)]"
+              >
+                APIs
+              </button>
+              <div className="invisible absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-card)] p-2 opacity-0 shadow-[0_16px_40px_rgba(2,6,23,0.45)] transition-all duration-150 group-hover:visible group-hover:opacity-100">
+                <a
+                  href="http://localhost:5057/swagger"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded px-3 py-2 text-lg text-[color:var(--color-text)] hover:bg-[color:var(--color-link-surface)]"
+                >
+                  RestSwagger
+                </a>
+                <a
+                  href="http://localhost:15672"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded px-3 py-2 text-lg text-[color:var(--color-text)] hover:bg-[color:var(--color-link-surface)]"
+                >
+                  RabitMQ UI
+                </a>
+                <a
+                  href="http://localhost:8080"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block rounded px-3 py-2 text-lg text-[color:var(--color-text)] hover:bg-[color:var(--color-link-surface)]"
+                >
+                  Kafka UI
+                </a>
+              </div>
+            </div>
           </nav>
         </div>
       </div>
