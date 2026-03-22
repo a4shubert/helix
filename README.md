@@ -14,30 +14,7 @@ This README documents the **current implementation**, not an aspirational target
 
 ## 1) Current Architecture
 
-```mermaid
-%%{init: {"theme":"default","themeVariables":{"darkMode":false}}}%%
-flowchart LR
-    web["helix-web"]
-    rest["helix-rest"]
-    runtime["helix-runtime"]
-    core["helix-core"]
-    store["helix-store (SQLite)"]
-    kafka["Kafka"]
-    rabbit["RabbitMQ"]
-
-    web <--> |HTTP + SSE| rest
-    rest <--> |query + persist| store
-
-    rest --> |trade.created| kafka
-    rest --> |portfolio.recompute, trade.compute| rabbit
-
-    rabbit --> |task consume| runtime
-    runtime --> |analytics calls| core
-    runtime --> |persist positions/pnl/risk + trade status| store
-    runtime --> |trade.updated, positions.updated, pl.updated, risk.updated| kafka
-
-    kafka --> |update consume| rest
-```
+![Current Architecture](docs/architecture.svg)
 
 ### Messaging intent
 
