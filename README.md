@@ -187,9 +187,11 @@ What the launch scripts do:
 
 - start Kafka and RabbitMQ
 - reset the SQLite store to clean seeded state
-- start `helix-rest`
+- build and publish `helix-rest` in `Release`
+- build the `helix-web` production bundle
+- start `helix-rest` from the published production output
 - start `helix-runtime`
-- start `helix-web`
+- start `helix-web` with the production server
 - write process logs under `.helix/logs`
 
 Stop the full stack:

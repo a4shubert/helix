@@ -161,6 +161,7 @@ export function PortfolioDashboard() {
     setCollapsedCards((current) => ({
       ...current,
       summary: false,
+      trades: true,
     }));
     setSelectedPortfolio(portfolioId);
   }
