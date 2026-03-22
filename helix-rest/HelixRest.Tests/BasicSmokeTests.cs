@@ -54,7 +54,7 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
             Currency = "USD",
             Active = true
         });
-        db.Books.Add(new BookEntity { Name = "Equity" });
+        db.Books.Add(new BookEntity { Name = "EQ-789" });
         db.SaveChanges();
     }
 
@@ -86,7 +86,7 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
             quantity = 100.0,
             price = 200.0,
             settlementDate = "2026-03-24",
-            book = "Equity"
+            book = "EQ-789"
         });
 
         response.EnsureSuccessStatusCode();
@@ -124,7 +124,7 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
                 MarketDataTs = olderAsOf,
                 Notional = 100,
                 MarketValue = 101,
-                Book = "Equity",
+                Book = "EQ-789",
                 AsOfTs = olderAsOf,
                 SourceEventId = "TEST-EVENT-OLDER"
             });
