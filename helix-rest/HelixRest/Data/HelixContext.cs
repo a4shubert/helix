@@ -23,7 +23,6 @@ public class HelixContext : DbContext
             entity.HasKey(x => x.PortfolioId);
             entity.Property(x => x.PortfolioId).HasColumnName("portfolio_id");
             entity.Property(x => x.Name).HasColumnName("name");
-            entity.Property(x => x.SortOrder).HasColumnName("sort_order");
             entity.Property(x => x.Status).HasColumnName("status");
             entity.Property(x => x.CreatedAt).HasColumnName("created_at");
         });

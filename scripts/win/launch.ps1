@@ -12,6 +12,60 @@ $LogDir = Join-Path $RepoRoot ".helix/logs"
 New-Item -ItemType Directory -Force -Path $RunDir | Out-Null
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
 
+function Get-PortFromUrl {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Url
+    )
+
+    return ([System.Uri]$Url).Port
+}
+
+function Clear-StalePidFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $PidFile = Join-Path $RunDir "$Name.pid"
+    if (-not (Test-Path $PidFile)) {
+        return
+    }
+
+    $PidValue = Get-Content $PidFile -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (-not $PidValue) {
+        Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+        return
+    }
+
+    if (-not (Get-Process -Id $PidValue -ErrorAction SilentlyContinue)) {
+        Remove-Item $PidFile -Force -ErrorAction SilentlyContinue
+    }
+}
+
+function Stop-ListenerOnPort {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$Port
+    )
+
+    $connections = Get-NetTCPConnection -LocalPort $Port -State Listen -ErrorAction SilentlyContinue
+    foreach ($connection in $connections) {
+        $pid = $connection.OwningProcess
+        if ($pid) {
+            Write-Host "[launch] Stopping stray listener on port $Port (PID $pid)..."
+            Stop-Process -Id $pid -Force -ErrorAction SilentlyContinue
+        }
+    }
+}
+
+Clear-StalePidFile -Name "rest"
+Clear-StalePidFile -Name "runtime"
+Clear-StalePidFile -Name "web"
+
+Stop-ListenerOnPort -Port (Get-PortFromUrl -Url $Env:HELIX_API_URL)
+Stop-ListenerOnPort -Port ([int]$Env:HELIX_WEB_PORT)
+
 & (Join-Path $ScriptDir "brokers_start.ps1")
 Start-Sleep -Seconds 5
 

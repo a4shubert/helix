@@ -181,6 +181,20 @@ What the launch scripts do:
 - start `helix-web`
 - write process logs under `.helix/logs`
 
+Stop the full stack:
+
+Linux / macOS:
+
+```bash
+./scripts/linux/stop.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/win/stop.ps1
+```
+
 Default URLs:
 
 - REST API: `http://localhost:5057`

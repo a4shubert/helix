@@ -4,7 +4,6 @@ public class PortfolioEntity
 {
     public required string PortfolioId { get; set; }
     public required string Name { get; set; }
-    public int SortOrder { get; set; }
     public required string Status { get; set; }
     public DateTime CreatedAt { get; set; }
 

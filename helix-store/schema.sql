@@ -3,7 +3,6 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS portfolio (
   portfolio_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  sort_order INTEGER NOT NULL,
   status TEXT NOT NULL,
   created_at DATETIME NOT NULL
 );

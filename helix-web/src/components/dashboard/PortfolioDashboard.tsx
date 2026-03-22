@@ -23,6 +23,7 @@ import { PortfolioSidebar } from "@/components/dashboard/PortfolioSidebar";
 import { PortfolioMarketDataTable } from "@/components/dashboard/PortfolioMarketDataTable";
 import { PortfolioSummaryCard } from "@/components/dashboard/PortfolioSummaryCard";
 import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTable";
+import { FirmWidePnlCard } from "@/components/dashboard/FirmWidePnlCard";
 import type { MarketDataRow, PortfolioResponse, PortfolioTrade } from "@/lib/api/types";
 
 const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
@@ -38,7 +39,7 @@ export function PortfolioDashboard() {
     showLoading: boolean;
   } | null>(null);
   const sseRefreshTimerRef = useRef<number | null>(null);
-  const [selectedPortfolio, setSelectedPortfolio] = useState<string>("PF-EQ");
+  const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
   const [portfolioItems, setPortfolioItems] = useState<PortfolioListItem[]>([]);
   const [collapsedCards, setCollapsedCards] = useState({
     summary: false,
@@ -61,7 +62,38 @@ export function PortfolioDashboard() {
   const pnlMetrics = pnlSnapshot?.metrics ?? [];
   const riskMetrics = riskSnapshot?.metrics ?? [];
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
+  const visibleMarketDataRows = marketDataRows.filter((row) =>
+    portfolio.positions.some((position) => position.instrumentId === row.instrumentId),
+  );
+  const firmWideTotalPnl = portfolioItems.reduce(
+    (sum, item) => sum + (pnlByPortfolio[item.portfolioId]?.totalPnl ?? 0),
+    0,
+  );
+  const firmWideValuationTimestamp = portfolioItems
+    .map((item) => pnlByPortfolio[item.portfolioId]?.valuationTs)
+    .filter((timestamp): timestamp is string => Boolean(timestamp))
+    .sort((left, right) => right.localeCompare(left))[0];
   const valuationTimestamp = pnlSnapshot?.valuationTs ?? riskSnapshot?.valuationTs;
+
+  const refreshFirmWidePnl = useCallback(async () => {
+    if (portfolioItems.length === 0) {
+      return;
+    }
+
+    const snapshots = await Promise.all(
+      portfolioItems.map(async (item) => ({
+        portfolioId: item.portfolioId,
+        snapshot: await fetchPnl(item.portfolioId),
+      })),
+    );
+
+    startTransition(() => {
+      setPnlByPortfolio((current) => ({
+        ...current,
+        ...Object.fromEntries(snapshots.map((entry) => [entry.portfolioId, entry.snapshot])),
+      }));
+    });
+  }, [portfolioItems]);
 
   const refreshPortfolio = useCallback(async (
     portfolioId: string,
@@ -97,6 +129,8 @@ export function PortfolioDashboard() {
         setMarketDataRows(marketDataResponse.rows);
         setMarketDataAsOf(marketDataResponse.asOf);
       });
+
+      await refreshFirmWidePnl();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load portfolio data.");
     } finally {
@@ -112,7 +146,7 @@ export function PortfolioDashboard() {
         });
       }
     }
-  }, []);
+  }, [refreshFirmWidePnl]);
 
   function toggleCard(card: keyof typeof collapsedCards) {
     setCollapsedCards((current) => ({
@@ -231,12 +265,16 @@ export function PortfolioDashboard() {
         }}
         recomputingKey={recomputingPortfolio}
       />
-      <div className="flex h-full min-h-0 flex-1 flex-col gap-4">
+      <div className="relative flex h-full min-h-0 flex-1 flex-col gap-4">
         {(isLoading || error) && (
-          <div className="rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-card)] px-4 py-3 text-sm text-[color:var(--color-muted)]">
+          <div className="pointer-events-none absolute right-0 top-0 z-10 max-w-[28rem] rounded-xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/95 px-4 py-3 text-sm text-[color:var(--color-muted)] shadow-[0_12px_40px_rgba(2,6,23,0.35)] backdrop-blur-sm">
             {error ? `REST error: ${error}` : `Loading ${selectedPortfolio}...`}
           </div>
         )}
+        <FirmWidePnlCard
+          totalPnl={firmWideTotalPnl}
+          valuationTimestamp={firmWideValuationTimestamp}
+        />
         <PortfolioSummaryCard
           pnlMetrics={pnlMetrics}
           riskMetrics={riskMetrics}
@@ -259,7 +297,7 @@ export function PortfolioDashboard() {
           onToggle={() => toggleCard("position")}
         />
         <PortfolioMarketDataTable
-          rows={marketDataRows}
+          rows={visibleMarketDataRows}
           asOf={marketDataAsOf}
           collapsed={collapsedCards.marketData}
           onToggle={() => toggleCard("marketData")}

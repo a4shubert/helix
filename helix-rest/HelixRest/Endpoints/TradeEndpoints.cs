@@ -106,38 +106,18 @@ public static class TradeEndpoints
 
             var books = await db.Books
                 .AsNoTracking()
-                .OrderBy(x => x.Name)
                 .Select(x => x.Name)
                 .ToListAsync(cancellationToken);
 
             var assetClasses = instruments
                 .Select(x => x.assetClass)
                 .Distinct()
-                .OrderBy(x => x switch
-                {
-                    "Equity" => 0,
-                    "Fixed Income" => 1,
-                    "Commodity" => 2,
-                    _ => 99
-                })
-                .ThenBy(x => x)
-                .ToList();
-
-            var orderedInstruments = instruments
-                .OrderBy(x => x.assetClass switch
-                {
-                    "Equity" => 0,
-                    "Fixed Income" => 1,
-                    "Commodity" => 2,
-                    _ => 99
-                })
-                .ThenBy(x => x.instrumentName)
                 .ToList();
 
             return Results.Ok(new
             {
                 assetClasses,
-                instruments = orderedInstruments,
+                instruments,
                 books
             });
         }).WithTags("trades");

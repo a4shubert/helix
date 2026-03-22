@@ -13,8 +13,6 @@ public static class PortfolioEndpoints
         {
             var portfolios = await db.Portfolios
                 .AsNoTracking()
-                .OrderBy(x => x.SortOrder)
-                .ThenBy(x => x.PortfolioId)
                 .Select(x => new
                 {
                     portfolioId = x.PortfolioId,
