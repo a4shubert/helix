@@ -19,9 +19,9 @@ PORTFOLIOS = [
 ]
 
 BOOK_BY_ASSET_CLASS = {
-    "Equity": "Equity",
-    "Fixed Income": "Fixed Income",
-    "Commodity": "Commodities",
+    "Equity": "EQ-789",
+    "Fixed Income": "FI-175",
+    "Commodity": "CM-987",
 }
 
 
@@ -51,7 +51,7 @@ def build_reference_data(
                 "currency": "USD",
             },
         )
-        books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "Fixed Income"))
+        books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "FI-175"))
 
     ordered_books: list[str] = []
     for value in books:

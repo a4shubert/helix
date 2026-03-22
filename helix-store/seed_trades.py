@@ -10,9 +10,9 @@ DB_PATH = ROOT / "helix-store" / "helix.db"
 SEED_TRADES_PATH = ROOT / "helix-store" / "instrument_seed_trades.json"
 
 BOOK_BY_ASSET_CLASS = {
-    "Equity": "Equity",
-    "Fixed Income": "Fixed Income",
-    "Commodity": "Commodities",
+    "Equity": "EQ-789",
+    "Fixed Income": "FI-175",
+    "Commodity": "CM-987",
 }
 
 
@@ -46,7 +46,7 @@ def main() -> None:
                     trade["notional"],
                     f"{trade['trade_date']}T09:00:00Z",
                     trade["trade_date"],
-                    BOOK_BY_ASSET_CLASS.get(str(trade["asset_class"]), "Fixed Income"),
+                    BOOK_BY_ASSET_CLASS.get(str(trade["asset_class"]), "FI-175"),
                     trade["status"],
                     trade["version"],
                     f"{trade['trade_date']}T09:00:00Z",

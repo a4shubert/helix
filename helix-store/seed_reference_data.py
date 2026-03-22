@@ -10,9 +10,9 @@ DB_PATH = ROOT / "helix-store" / "helix.db"
 SEED_TRADES_PATH = ROOT / "helix-store" / "instrument_seed_trades.json"
 
 BOOK_BY_ASSET_CLASS = {
-    "Equity": "Equity",
-    "Fixed Income": "Fixed Income",
-    "Commodity": "Commodities",
+    "Equity": "EQ-789",
+    "Fixed Income": "FI-175",
+    "Commodity": "CM-987",
 }
 
 
@@ -38,7 +38,7 @@ def main() -> None:
                 "currency": "USD",
             },
         )
-        books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "Fixed Income"))
+        books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "FI-175"))
 
     with sqlite3.connect(DB_PATH) as conn:
         conn.execute("DELETE FROM instrument")
