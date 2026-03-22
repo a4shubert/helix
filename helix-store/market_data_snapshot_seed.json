@@ -1,0 +1,242 @@
+[
+  {
+    "snapshot_id": "MDS-20260321-085900-001",
+    "instrument_id": "US10Y",
+    "field_name": "last_price",
+    "field_value": 110.8,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-003",
+    "instrument_id": "EURUSD",
+    "field_name": "last_price",
+    "field_value": 1.09,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-005",
+    "instrument_id": "USDJPY",
+    "field_name": "last_price",
+    "field_value": 150,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-007",
+    "instrument_id": "XAUUSD",
+    "field_name": "last_price",
+    "field_value": 2030,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-009",
+    "instrument_id": "CL1",
+    "field_name": "last_price",
+    "field_value": 77.5,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-011",
+    "instrument_id": "SPX",
+    "field_name": "last_price",
+    "field_value": 5100,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-013",
+    "instrument_id": "DAX",
+    "field_name": "last_price",
+    "field_value": 17720,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-016",
+    "instrument_id": "HG1",
+    "field_name": "last_price",
+    "field_value": 4.15,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-018",
+    "instrument_id": "GBPUSD",
+    "field_name": "last_price",
+    "field_value": 1.255,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-020",
+    "instrument_id": "SX5E",
+    "field_name": "last_price",
+    "field_value": 5100,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-023",
+    "instrument_id": "AAPL",
+    "field_name": "last_price",
+    "field_value": 192,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-024",
+    "instrument_id": "NVDA",
+    "field_name": "last_price",
+    "field_value": 710,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-025",
+    "instrument_id": "MSFT",
+    "field_name": "last_price",
+    "field_value": 418,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-026",
+    "instrument_id": "AMZN",
+    "field_name": "last_price",
+    "field_value": 184,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-027",
+    "instrument_id": "META",
+    "field_name": "last_price",
+    "field_value": 495,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-028",
+    "instrument_id": "QQQ",
+    "field_name": "last_price",
+    "field_value": 395,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-029",
+    "instrument_id": "TSLA",
+    "field_name": "last_price",
+    "field_value": 205,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-030",
+    "instrument_id": "INTC",
+    "field_name": "last_price",
+    "field_value": 41.5,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-031",
+    "instrument_id": "CRM",
+    "field_name": "last_price",
+    "field_value": 306,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-032",
+    "instrument_id": "ADBE",
+    "field_name": "last_price",
+    "field_value": 540,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-033",
+    "instrument_id": "BRLUSD",
+    "field_name": "last_price",
+    "field_value": 0.205,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-035",
+    "instrument_id": "MXNUSD",
+    "field_name": "last_price",
+    "field_value": 0.058,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-037",
+    "instrument_id": "ZARUSD",
+    "field_name": "last_price",
+    "field_value": 0.054,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-039",
+    "instrument_id": "EMB",
+    "field_name": "last_price",
+    "field_value": 91,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-040",
+    "instrument_id": "HYG",
+    "field_name": "last_price",
+    "field_value": 79,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-041",
+    "instrument_id": "EWZ",
+    "field_name": "last_price",
+    "field_value": 36.2,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-042",
+    "instrument_id": "EWW",
+    "field_name": "last_price",
+    "field_value": 31.1,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-043",
+    "instrument_id": "FXI",
+    "field_name": "last_price",
+    "field_value": 24.4,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-044",
+    "instrument_id": "COPX",
+    "field_name": "last_price",
+    "field_value": 46.3,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  },
+  {
+    "snapshot_id": "MDS-20260321-085900-045",
+    "instrument_id": "LQD",
+    "field_name": "last_price",
+    "field_value": 109.2,
+    "as_of_ts": "2026-03-21T08:59:00Z",
+    "source": "mock_feed"
+  }
+]
