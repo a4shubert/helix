@@ -471,6 +471,7 @@ export function PortfolioTradesTable({
         onClose={() => setIsFormOpen(false)}
         onSave={async (trade) => {
           await onSaveTrade(trade, selectedTrade?.trade_id);
+          gridApiRef.current?.deselectAll();
           setIsFormOpen(false);
           setSelectedTrade(null);
           setSelectedCount(0);
