@@ -1,26 +1,28 @@
-using System.Text.Json;
 using System.Net.Sockets;
+using System.Text.Json;
 using Confluent.Kafka;
 using Confluent.Kafka.Admin;
+using HelixRest.Messaging.Configuration;
+using HelixRest.Messaging.Streaming;
 using Microsoft.Extensions.Options;
 
-namespace HelixRest.Messaging;
+namespace HelixRest.Messaging.Kafka;
 
-public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
+public sealed class KafkaPortfolioUpdatesConsumer : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
         PropertyNameCaseInsensitive = true
     };
 
-    private readonly HelixKafkaOptions _options;
-    private readonly UpdateStreamBroadcaster _broadcaster;
-    private readonly ILogger<KafkaPortfolioUpdateConsumerService> _logger;
+    private readonly KafkaOptions _options;
+    private readonly PortfolioUpdateBroadcaster _broadcaster;
+    private readonly ILogger<KafkaPortfolioUpdatesConsumer> _logger;
 
-    public KafkaPortfolioUpdateConsumerService(
-        IOptions<HelixKafkaOptions> options,
-        UpdateStreamBroadcaster broadcaster,
-        ILogger<KafkaPortfolioUpdateConsumerService> logger)
+    public KafkaPortfolioUpdatesConsumer(
+        IOptions<KafkaOptions> options,
+        PortfolioUpdateBroadcaster broadcaster,
+        ILogger<KafkaPortfolioUpdatesConsumer> logger)
     {
         _options = options.Value;
         _broadcaster = broadcaster;
@@ -49,7 +51,7 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
                     continue;
                 }
 
-                await EnsureTopicsExistAsync(bootstrapServers, stoppingToken);
+                await EnsureTopicsExistAsync(bootstrapServers);
 
                 using var consumer = new ConsumerBuilder<Ignore, string>(new ConsumerConfig
                 {
@@ -59,10 +61,10 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
                     EnableAutoCommit = true
                 }).Build();
 
-                consumer.Subscribe(BrokerNames.UpdateTopics);
+                consumer.Subscribe(BrokerTopology.PortfolioUpdateTopics);
                 _logger.LogInformation(
                     "Kafka update consumer subscribed to: {Topics}",
-                    string.Join(", ", BrokerNames.UpdateTopics));
+                    string.Join(", ", BrokerTopology.PortfolioUpdateTopics));
 
                 while (!stoppingToken.IsCancellationRequested)
                 {
@@ -85,7 +87,7 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
                             continue;
                         }
 
-                        await _broadcaster.PublishAsync(new PortfolioUpdateNotification(
+                        await _broadcaster.PublishAsync(new PortfolioUpdateMessage(
                             update.EventType,
                             update.PortfolioId,
                             update.SnapshotId,
@@ -148,14 +150,13 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
             }
             catch
             {
-                // Ignore and continue probing other bootstrap endpoints.
             }
         }
 
         return false;
     }
 
-    private async Task EnsureTopicsExistAsync(string bootstrapServers, CancellationToken cancellationToken)
+    private static async Task EnsureTopicsExistAsync(string bootstrapServers)
     {
         using var admin = new AdminClientBuilder(new AdminClientConfig
         {
@@ -165,7 +166,7 @@ public sealed class KafkaPortfolioUpdateConsumerService : BackgroundService
         try
         {
             await admin.CreateTopicsAsync(
-                BrokerNames.UpdateTopics.Select(topic => new TopicSpecification
+                BrokerTopology.PortfolioUpdateTopics.Select(topic => new TopicSpecification
                 {
                     Name = topic,
                     NumPartitions = 1,

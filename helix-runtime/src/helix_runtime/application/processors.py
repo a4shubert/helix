@@ -6,8 +6,9 @@ from datetime import datetime
 
 from helix_core import compute_portfolio_analytics, compute_trade_notional
 
-from .broker_names import TRADE_UPDATED_TOPIC
-from .events import RabbitMqTask, build_trade_updated_payload
+from helix_runtime.brokers.payloads import RabbitMqTask, build_trade_updated_payload
+from helix_runtime.brokers.topology import TRADE_UPDATED_TOPIC
+
 from .models import (
     PersistedAnalytics,
     PortfolioUpdateEvent,

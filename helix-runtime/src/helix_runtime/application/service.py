@@ -7,8 +7,8 @@ import threading
 import time
 from dataclasses import dataclass
 
-from .config import KafkaConfig, RabbitMqConfig
-from .consumers import RabbitMqTaskWorker
+from helix_runtime.brokers.config import KafkaConfig, RabbitMqConfig
+from helix_runtime.brokers.workers import RabbitMqTaskWorker
 
 
 @dataclass(frozen=True)

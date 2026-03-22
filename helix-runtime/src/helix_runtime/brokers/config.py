@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 
-from .broker_names import (
+from .topology import (
     ALERT_CREATED_TOPIC,
     MARKETDATA_UPDATED_TOPIC,
     PL_UPDATED_TOPIC,

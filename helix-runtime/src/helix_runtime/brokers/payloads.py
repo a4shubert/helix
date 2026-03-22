@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from .broker_names import TRADE_CREATED_TOPIC, TRADE_UPDATED_TOPIC
+from helix_runtime.application.models import PortfolioUpdateEvent, TradeCreatedEvent
+
 from .config import KafkaConfig
-from .models import PortfolioUpdateEvent, TradeCreatedEvent
+from .topology import TRADE_CREATED_TOPIC, TRADE_UPDATED_TOPIC
 
 
 def _isoformat_utc(value: datetime) -> str:

@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import sqlite3
-from collections import defaultdict
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
@@ -11,7 +10,7 @@ from pathlib import Path
 
 from helix_core import MarketInput, PortfolioAnalytics, Trade
 
-from .models import PersistedAnalytics
+from helix_runtime.application.models import PersistedAnalytics
 
 
 DEFAULT_RISK_WEIGHT_BY_ASSET_CLASS = {
@@ -101,8 +100,6 @@ class SqliteHelixStore:
         return [self._row_to_trade(row) for row in rows]
 
     def get_market_inputs_for_portfolio(self, portfolio_id: str) -> dict[str, MarketInput]:
-        # Keep this aligned with recompute processing, which can mark the triggering trade
-        # as "processing" before analytics are loaded.
         trades = self.get_portfolio_trades(
             portfolio_id,
             statuses=("accepted", "processed", "processing"),

@@ -1,22 +1,19 @@
 using System.Text.Json;
 using Confluent.Kafka;
+using HelixRest.Messaging.Abstractions;
+using HelixRest.Messaging.Configuration;
 using Microsoft.Extensions.Options;
 
-namespace HelixRest.Messaging;
+namespace HelixRest.Messaging.Kafka;
 
-public interface ITradeCreatedPublisher
+public sealed class KafkaTradeEventPublisher : ITradeEventPublisher, IDisposable
 {
-    Task PublishAsync(string tradeId, string portfolioId, DateTime occurredAt, CancellationToken cancellationToken);
-}
-
-public sealed class KafkaTradeCreatedPublisher : ITradeCreatedPublisher, IDisposable
-{
-    private readonly ILogger<KafkaTradeCreatedPublisher> _logger;
+    private readonly ILogger<KafkaTradeEventPublisher> _logger;
     private readonly IProducer<Null, string>? _producer;
 
-    public KafkaTradeCreatedPublisher(
-        IOptions<HelixKafkaOptions> options,
-        ILogger<KafkaTradeCreatedPublisher> logger)
+    public KafkaTradeEventPublisher(
+        IOptions<KafkaOptions> options,
+        ILogger<KafkaTradeEventPublisher> logger)
     {
         _logger = logger;
         var bootstrapServers = options.Value.BootstrapServers.Trim();
@@ -32,7 +29,7 @@ public sealed class KafkaTradeCreatedPublisher : ITradeCreatedPublisher, IDispos
         }).Build();
     }
 
-    public async Task PublishAsync(
+    public async Task PublishTradeCreatedAsync(
         string tradeId,
         string portfolioId,
         DateTime occurredAt,
@@ -49,14 +46,14 @@ public sealed class KafkaTradeCreatedPublisher : ITradeCreatedPublisher, IDispos
         var payload = JsonSerializer.Serialize(new
         {
             eventId = $"EVT-{Guid.NewGuid():N}".ToUpperInvariant()[..16],
-            eventType = BrokerNames.TradeCreatedTopic,
+            eventType = BrokerTopology.TradeCreatedTopic,
             tradeId,
             portfolioId,
             timestamp = occurredAt.ToUniversalTime().ToString("O").Replace("+00:00", "Z")
         });
 
         await _producer.ProduceAsync(
-            BrokerNames.TradeCreatedTopic,
+            BrokerTopology.TradeCreatedTopic,
             new Message<Null, string> { Value = payload },
             cancellationToken);
     }

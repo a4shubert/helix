@@ -4,15 +4,14 @@ import type {
   CellDoubleClickedEvent,
   ColDef,
   FilterChangedEvent,
-  GridApi,
   GridReadyEvent,
   PaginationChangedEvent,
   SelectionChangedEvent,
 } from "ag-grid-community";
-import { useEffect, useRef, useState } from "react";
 import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
+import { useHelixTableControls } from "@/components/grid/useHelixTableControls";
 import type { MarketDataRow } from "@/lib/api/types";
 import { formatUkDateTime } from "@/lib/format/date";
 import { formatDecimal } from "@/lib/format/number";
@@ -75,156 +74,34 @@ export function PortfolioMarketDataTable({
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const gridApiRef = useRef<GridApi<MarketDataRow> | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-  const [visibleStart, setVisibleStart] = useState(0);
-  const [visibleEnd, setVisibleEnd] = useState(0);
-  const [visibleTotalRows, setVisibleTotalRows] = useState(rows.length);
-  const [selectedCount, setSelectedCount] = useState(0);
-  const [hasFilters, setHasFilters] = useState(false);
+  const {
+    currentPage,
+    lastPage,
+    visibleStart,
+    visibleEnd,
+    visibleTotalRows,
+    selectedCount,
+    hasFilters,
+    attachApi,
+    refreshPaginationState,
+    handleFitColumnsToHeader,
+    handleFitColumnsToData,
+    handleDownloadCsv,
+    handleResetFilters,
+    handleGoToFirstPage,
+    handleGoToPreviousPage,
+    handleGoToNextPage,
+    handleGoToLastPage,
+    handleClearSelection,
+    handleFilterChanged,
+    handleSelectionCountChanged,
+  } = useHelixTableControls<MarketDataRow>({
+    csvFileName: "market-data.csv",
+    autoFitToken: rows,
+  });
   const totalRows = rows.length;
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
-
-  function refreshPaginationState(api: GridApi<MarketDataRow>) {
-    const nextCurrent = (api.paginationGetCurrentPage?.() ?? 0) + 1;
-    const nextLast = Math.max(1, api.paginationGetTotalPages?.() ?? 1);
-    const displayed = api.getDisplayedRowCount?.() ?? 0;
-    const firstDisplayed = api.getFirstDisplayedRowIndex?.() ?? -1;
-    const lastDisplayed = api.getLastDisplayedRowIndex?.() ?? -1;
-    setCurrentPage(nextCurrent);
-    setLastPage(nextLast);
-    setVisibleTotalRows(displayed);
-    setVisibleStart(firstDisplayed >= 0 ? firstDisplayed + 1 : 0);
-    setVisibleEnd(lastDisplayed >= 0 ? lastDisplayed + 1 : 0);
-  }
-
-  function handleFitColumnsToHeader() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    const cols = api.getAllDisplayedColumns?.() ?? [];
-    const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
-    if (colIds.length === 0) {
-      return;
-    }
-    api.autoSizeColumns?.(colIds, false);
-  }
-
-  function handleFitColumnsToData() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    const cols = api.getAllDisplayedColumns?.() ?? [];
-    const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
-    if (colIds.length === 0) {
-      return;
-    }
-    api.autoSizeColumns?.(colIds, true);
-  }
-
-  function handleDownloadCsv() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-
-    api.exportDataAsCsv({
-      fileName: "market-data.csv",
-    });
-  }
-
-  function handleResetFilters() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.setFilterModel(null);
-    api.onFilterChanged?.();
-    setHasFilters(false);
-    api.paginationGoToFirstPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToFirstPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToFirstPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToPreviousPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToPreviousPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToNextPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToNextPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToLastPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToLastPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleClearSelection() {
-    gridApiRef.current?.deselectAll();
-    setSelectedCount(0);
-  }
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      handleFitColumnsToData();
-      if (gridApiRef.current) {
-        refreshPaginationState(gridApiRef.current);
-      }
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [rows]);
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") {
-        return;
-      }
-      if (event.ctrlKey || event.metaKey || event.altKey) {
-        return;
-      }
-      if (!hasFilters) {
-        return;
-      }
-      const api = gridApiRef.current;
-      if (!api) {
-        return;
-      }
-      api.setFilterModel(null);
-      api.onFilterChanged?.();
-      setHasFilters(false);
-      api.paginationGoToFirstPage?.();
-      refreshPaginationState(api);
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hasFilters]);
 
   return (
     <DashboardCardShell
@@ -433,7 +310,7 @@ export function PortfolioMarketDataTable({
           defaultColDef={defaultColDef}
           rowIdField="instrumentId"
           onGridReady={(event: GridReadyEvent<MarketDataRow>) => {
-            gridApiRef.current = event.api;
+            attachApi(event.api);
             requestAnimationFrame(() => {
               handleFitColumnsToData();
               refreshPaginationState(event.api);
@@ -443,20 +320,17 @@ export function PortfolioMarketDataTable({
             refreshPaginationState(event.api);
           }}
           onSelectionChanged={(event: SelectionChangedEvent<MarketDataRow>) => {
-            setSelectedCount(event.api.getSelectedNodes().length);
+            handleSelectionCountChanged(event.api);
           }}
           onCellDoubleClicked={(event: CellDoubleClickedEvent<MarketDataRow>) => {
             if (!event.node) {
               return;
             }
             event.node.setSelected(!event.node.isSelected());
-            setSelectedCount(event.api.getSelectedNodes().length);
+            handleSelectionCountChanged(event.api);
           }}
           onFilterChanged={(event: FilterChangedEvent<MarketDataRow>) => {
-            const filterModel = event.api.getFilterModel();
-            setHasFilters(Object.keys(filterModel ?? {}).length > 0);
-            event.api.paginationGoToFirstPage?.();
-            refreshPaginationState(event.api);
+            handleFilterChanged(event.api);
           }}
           gridOptions={{
             pagination: true,

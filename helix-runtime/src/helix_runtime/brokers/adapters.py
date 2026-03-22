@@ -7,9 +7,10 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
+from helix_runtime.application.models import PortfolioUpdateEvent
+
 from .config import KafkaConfig, RabbitMqConfig
-from .events import RabbitMqTask, build_portfolio_update_payload, kafka_topic_for_update
-from .models import PortfolioUpdateEvent
+from .payloads import RabbitMqTask, build_portfolio_update_payload, kafka_topic_for_update
 
 
 def _isoformat_utc(value: datetime) -> str:

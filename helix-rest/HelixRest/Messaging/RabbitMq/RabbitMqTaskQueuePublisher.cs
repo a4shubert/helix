@@ -1,29 +1,16 @@
 using System.Text.Json;
+using HelixRest.Messaging.Abstractions;
+using HelixRest.Messaging.Configuration;
 using Microsoft.Extensions.Options;
 using RabbitMQ.Client;
 
-namespace HelixRest.Messaging;
+namespace HelixRest.Messaging.RabbitMq;
 
-public interface IPortfolioRecomputeTaskPublisher
+public sealed class RabbitMqTaskQueuePublisher : ITaskQueuePublisher
 {
-    Task PublishPortfolioRecomputeAsync(
-        string portfolioId,
-        string? sourceEventId,
-        DateTime requestedAt,
-        CancellationToken cancellationToken);
+    private readonly RabbitMqOptions _options;
 
-    Task PublishTradeComputeAsync(
-        string portfolioId,
-        string tradeId,
-        DateTime requestedAt,
-        CancellationToken cancellationToken);
-}
-
-public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomputeTaskPublisher
-{
-    private readonly HelixRabbitMqOptions _options;
-
-    public RabbitMqPortfolioRecomputeTaskPublisher(IOptions<HelixRabbitMqOptions> options)
+    public RabbitMqTaskQueuePublisher(IOptions<RabbitMqOptions> options)
     {
         _options = options.Value;
     }
@@ -35,7 +22,7 @@ public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomput
         CancellationToken cancellationToken)
         => PublishTaskAsync(
             _options.PortfolioRecomputeQueue,
-            BrokerNames.PortfolioRecomputeQueue,
+            BrokerTopology.PortfolioRecomputeQueue,
             portfolioId,
             sourceEventId,
             requestedAt,
@@ -48,7 +35,7 @@ public sealed class RabbitMqPortfolioRecomputeTaskPublisher : IPortfolioRecomput
         CancellationToken cancellationToken)
         => PublishTaskAsync(
             _options.TradeComputeQueue,
-            BrokerNames.TradeComputeQueue,
+            BrokerTopology.TradeComputeQueue,
             portfolioId,
             tradeId,
             requestedAt,
