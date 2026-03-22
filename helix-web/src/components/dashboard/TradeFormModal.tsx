@@ -90,7 +90,7 @@ export function TradeFormModal({
         }
         setOptions(response);
         setForm((current) => {
-          const assetClass = current.asset_class || response.assetClasses[0] || "";
+          const assetClass = current.asset_class;
           const filteredInstruments = response.instruments.filter(
             (instrument) => instrument.assetClass === assetClass,
           );
@@ -126,14 +126,22 @@ export function TradeFormModal({
 
   const filteredInstruments = useMemo(
     () =>
-      options.instruments.filter((instrument) =>
-        form.asset_class ? instrument.assetClass === form.asset_class : true,
-      ),
+      form.asset_class
+        ? options.instruments.filter((instrument) => instrument.assetClass === form.asset_class)
+        : [],
     [form.asset_class, options.instruments],
   );
 
   useEffect(() => {
     if (!open) {
+      return;
+    }
+
+    if (!form.asset_class) {
+      setForm((current) => ({
+        ...current,
+        instrument_id: "",
+      }));
       return;
     }
 
@@ -150,7 +158,7 @@ export function TradeFormModal({
         instrument_id: filteredInstruments[0]?.instrumentId ?? "",
       };
     });
-  }, [filteredInstruments, open]);
+  }, [filteredInstruments, form.asset_class, open]);
 
   const selectedInstrument = useMemo<TradeFormInstrumentOption | null>(
     () => options.instruments.find((instrument) => instrument.instrumentId === form.instrument_id) ?? null,

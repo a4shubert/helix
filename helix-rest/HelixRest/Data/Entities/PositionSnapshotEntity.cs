@@ -17,6 +17,9 @@ public class PositionSnapshotEntity
     public DateTime? MarketDataTs { get; set; }
     public double? Notional { get; set; }
     public double? MarketValue { get; set; }
+    public double RealizedPnl { get; set; }
+    public double UnrealizedPnl { get; set; }
+    public double TotalPnl { get; set; }
     public string? Book { get; set; }
     public DateTime AsOfTs { get; set; }
     public string? SourceEventId { get; set; }

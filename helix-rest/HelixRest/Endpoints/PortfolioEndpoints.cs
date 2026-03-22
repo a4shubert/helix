@@ -13,8 +13,6 @@ public static class PortfolioEndpoints
         {
             var portfolios = await db.Portfolios
                 .AsNoTracking()
-                .OrderBy(x => x.SortOrder)
-                .ThenBy(x => x.PortfolioId)
                 .Select(x => new
                 {
                     portfolioId = x.PortfolioId,
@@ -40,13 +38,13 @@ public static class PortfolioEndpoints
             }
 
             var requestedAt = DateTime.UtcNow;
-            await taskPublisher.PublishPortfolioComputeAsync(portfolioId, null, requestedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(portfolioId, null, requestedAt, cancellationToken);
 
             return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
             {
                 portfolioId,
                 status = "queued",
-                queue = BrokerTopology.PortfolioComputeQueue,
+                queue = BrokerTopology.PositionPlComputeQueue,
                 requestedAt
             });
         }).WithTags("portfolio");
@@ -98,6 +96,9 @@ public static class PortfolioEndpoints
                     marketDataTs = x.MarketDataTs,
                     notional = x.Notional,
                     marketValue = x.MarketValue,
+                    realizedPnl = x.RealizedPnl,
+                    unrealizedPnl = x.UnrealizedPnl,
+                    totalPnl = x.TotalPnl,
                     book = x.Book,
                 })
                 .ToList();

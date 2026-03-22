@@ -106,38 +106,18 @@ public static class TradeEndpoints
 
             var books = await db.Books
                 .AsNoTracking()
-                .OrderBy(x => x.Name)
                 .Select(x => x.Name)
                 .ToListAsync(cancellationToken);
 
             var assetClasses = instruments
                 .Select(x => x.assetClass)
                 .Distinct()
-                .OrderBy(x => x switch
-                {
-                    "Equity" => 0,
-                    "Fixed Income" => 1,
-                    "Commodity" => 2,
-                    _ => 99
-                })
-                .ThenBy(x => x)
-                .ToList();
-
-            var orderedInstruments = instruments
-                .OrderBy(x => x.assetClass switch
-                {
-                    "Equity" => 0,
-                    "Fixed Income" => 1,
-                    "Commodity" => 2,
-                    _ => 99
-                })
-                .ThenBy(x => x.instrumentName)
                 .ToList();
 
             return Results.Ok(new
             {
                 assetClasses,
-                instruments = orderedInstruments,
+                instruments,
                 books
             });
         }).WithTags("trades");
@@ -176,7 +156,7 @@ public static class TradeEndpoints
             db.Trades.Add(entity);
             await db.SaveChangesAsync(cancellationToken);
             await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
             return Results.Ok(new
@@ -225,7 +205,7 @@ public static class TradeEndpoints
 
             await db.SaveChangesAsync(cancellationToken);
             await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
             return Results.Ok(new
@@ -257,14 +237,14 @@ public static class TradeEndpoints
 
             var requestedAt = DateTime.UtcNow;
             await publisher.PublishTradeDeletedAsync(tradeId, portfolioId, requestedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioComputeAsync(portfolioId, null, requestedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(portfolioId, null, requestedAt, cancellationToken);
 
             return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
             {
                 tradeId,
                 portfolioId,
                 status = "deleted-queued",
-                queue = BrokerTopology.PortfolioComputeQueue,
+                queue = BrokerTopology.PositionPlComputeQueue,
                 requestedAt
             });
         }).WithTags("trades");

@@ -22,6 +22,16 @@ if [[ ! -d "${WEB_DIR}" ]]; then
   exit 1
 fi
 
+if command -v lsof >/dev/null 2>&1; then
+  if lsof -tiTCP:"${HELIX_WEB_PORT}" -sTCP:LISTEN >/dev/null 2>&1; then
+    echo "[web_start_prod] Port ${HELIX_WEB_PORT} is already in use."
+    echo "[web_start_prod] Listener PID(s):"
+    lsof -tiTCP:"${HELIX_WEB_PORT}" -sTCP:LISTEN | xargs -I{} ps -p {} -o pid= -o command=
+    echo "[web_start_prod] Stop the existing process or change HELIX_WEB_PORT."
+    exit 1
+  fi
+fi
+
 cd "${WEB_DIR}"
 if [[ ! -d node_modules ]]; then
   echo "[web_start_prod] Installing dependencies..."

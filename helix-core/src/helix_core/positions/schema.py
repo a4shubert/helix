@@ -22,5 +22,7 @@ class PositionSnapshot:
     market_data_ts: datetime | None
     notional: float
     market_value: float
+    realized_pnl: float
     unrealized_pnl: float
+    total_pnl: float
     book: str | None

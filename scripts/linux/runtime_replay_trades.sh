@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Clear live snapshots and rebuild them by replaying all trades through Kafka.
+# Clear live snapshots and rebuild them by replaying all trades through RabbitMQ tasks.
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -22,7 +22,7 @@ if [[ ! -x "${PYTHON_BIN}" ]]; then
   fi
 fi
 
-echo "[runtime_replay_trades] Replaying all trades through Kafka and RabbitMQ..."
+echo "[runtime_replay_trades] Replaying all trades through RabbitMQ tasks..."
 cd "${REPO_ROOT}"
 PYTHONPATH="${REPO_ROOT}/helix-core/src:${REPO_ROOT}/helix-runtime/src" \
   "${PYTHON_BIN}" -m helix_runtime.cli replay-trades --db-path "${HELIX_DB_PATH}" "$@"

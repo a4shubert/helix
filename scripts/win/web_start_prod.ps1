@@ -19,6 +19,12 @@ if (-not (Test-Path $WebDir)) {
     exit 1
 }
 
+$existing = Get-NetTCPConnection -LocalPort ([int]$Env:HELIX_WEB_PORT) -State Listen -ErrorAction SilentlyContinue
+if ($existing) {
+    Write-Host "[web_start_prod] Port $Env:HELIX_WEB_PORT is already in use."
+    exit 1
+}
+
 Push-Location $WebDir
 if (-not (Test-Path "node_modules")) {
     Write-Host "[web_start_prod] Installing dependencies..."

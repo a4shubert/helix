@@ -6,10 +6,15 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from helix_runtime.application.processors import PortfolioRecomputeProcessor, TradeComputeProcessor
+from helix_runtime.application.processors import (
+    PortfolioPlComputeProcessor,
+    PortfolioRiskComputeProcessor,
+    PositionPlComputeProcessor,
+    TradeComputeProcessor,
+)
 from helix_runtime.infrastructure.sqlite_store import SqliteHelixStore
 
-from .adapters import KafkaUpdatePublisher
+from .adapters import KafkaUpdatePublisher, RabbitMqTaskPublisher
 from .config import KafkaConfig, RabbitMqConfig
 from .payloads import RabbitMqTask
 
@@ -54,11 +59,16 @@ class RabbitMqTaskWorker:
 
         store = SqliteHelixStore(self._db_path)
         publisher = KafkaUpdatePublisher(self._kafka_config)
-        recompute_processor = PortfolioRecomputeProcessor(store, publisher)
+        task_publisher = RabbitMqTaskPublisher(self._config)
+        position_pl_processor = PositionPlComputeProcessor(store, publisher, task_publisher, self._config)
+        portfolio_pl_processor = PortfolioPlComputeProcessor(store, publisher)
+        portfolio_risk_processor = PortfolioRiskComputeProcessor(store, publisher)
         trade_compute_processor = TradeComputeProcessor(store, publisher)
         target_queues = queue_names or (
-            self._config.portfolio_compute_queue,
             self._config.trade_compute_queue,
+            self._config.position_pl_compute_queue,
+            self._config.portfolio_pl_compute_queue,
+            self._config.portfolio_risk_compute_queue,
         )
 
         credentials = pika.PlainCredentials(self._config.username, self._config.password)
@@ -86,12 +96,29 @@ class RabbitMqTaskWorker:
             nonlocal processed
             task = _parse_task_payload(body)
             try:
-                if method.routing_key == self._config.portfolio_compute_queue:
-                    result = recompute_processor.process(task)
+                if method.routing_key == self._config.position_pl_compute_queue:
+                    result = position_pl_processor.process(task)
                     print(
                         "[helix-runtime] processed rabbitmq task "
                         f"task_id={result.task_id} task_type={result.task_type} "
-                        f"portfolio_id={result.portfolio_id} published={len(result.published_events)}"
+                        f"portfolio_id={result.portfolio_id} snapshots={len(result.snapshot_ids)} "
+                        f"published={len(result.published_events)}"
+                    )
+                elif method.routing_key == self._config.portfolio_pl_compute_queue:
+                    result = portfolio_pl_processor.process(task)
+                    print(
+                        "[helix-runtime] processed rabbitmq task "
+                        f"task_id={result.task_id} task_type={result.task_type} "
+                        f"portfolio_id={result.portfolio_id} snapshots={len(result.snapshot_ids)} "
+                        f"published={len(result.published_events)}"
+                    )
+                elif method.routing_key == self._config.portfolio_risk_compute_queue:
+                    result = portfolio_risk_processor.process(task)
+                    print(
+                        "[helix-runtime] processed rabbitmq task "
+                        f"task_id={result.task_id} task_type={result.task_type} "
+                        f"portfolio_id={result.portfolio_id} snapshots={len(result.snapshot_ids)} "
+                        f"published={len(result.published_events)}"
                     )
                 elif method.routing_key == self._config.trade_compute_queue:
                     result = trade_compute_processor.process(task)

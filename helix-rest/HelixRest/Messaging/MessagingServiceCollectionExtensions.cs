@@ -22,10 +22,14 @@ public static class MessagingServiceCollectionExtensions
             options.Username = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_USERNAME") ?? "guest";
             options.Password = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PASSWORD") ?? "guest";
             options.VirtualHost = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_VHOST") ?? "/";
-            options.PortfolioComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_COMPUTE")
-                ?? BrokerTopology.PortfolioComputeQueue;
             options.TradeComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_TRADE_COMPUTE")
                 ?? BrokerTopology.TradeComputeQueue;
+            options.PositionPlComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_POSITION_PL_COMPUTE")
+                ?? BrokerTopology.PositionPlComputeQueue;
+            options.PortfolioPlComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_PL_COMPUTE")
+                ?? BrokerTopology.PortfolioPlComputeQueue;
+            options.PortfolioRiskComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_RISK_COMPUTE")
+                ?? BrokerTopology.PortfolioRiskComputeQueue;
         });
 
         services.AddSingleton<PortfolioUpdateBroadcaster>();

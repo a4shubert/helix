@@ -3,7 +3,6 @@ PRAGMA foreign_keys = ON;
 CREATE TABLE IF NOT EXISTS portfolio (
   portfolio_id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
-  sort_order INTEGER NOT NULL,
   status TEXT NOT NULL,
   created_at DATETIME NOT NULL
 );
@@ -58,6 +57,9 @@ CREATE TABLE IF NOT EXISTS position (
   market_data_ts DATETIME,
   notional REAL,
   market_value REAL,
+  realized_pnl REAL NOT NULL,
+  unrealized_pnl REAL NOT NULL,
+  total_pnl REAL NOT NULL,
   book TEXT,
   as_of_ts DATETIME NOT NULL,
   source_event_id TEXT,

@@ -23,7 +23,22 @@ export function useHelixTableControls<T extends Record<string, unknown>>({
   const [selectedCount, setSelectedCount] = useState(0);
   const [hasFilters, setHasFilters] = useState(false);
 
+  function getLiveApi() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return null;
+    }
+    if (api.isDestroyed?.()) {
+      gridApiRef.current = null;
+      return null;
+    }
+    return api;
+  }
+
   function refreshPaginationState(api: GridApi<T>) {
+    if (api.isDestroyed?.()) {
+      return;
+    }
     const nextCurrent = (api.paginationGetCurrentPage?.() ?? 0) + 1;
     const nextLast = Math.max(1, api.paginationGetTotalPages?.() ?? 1);
     const displayed = api.getDisplayedRowCount?.() ?? 0;
@@ -38,7 +53,7 @@ export function useHelixTableControls<T extends Record<string, unknown>>({
   }
 
   function withApi(action: (api: GridApi<T>) => void) {
-    const api = gridApiRef.current;
+    const api = getLiveApi();
     if (!api) {
       return;
     }
@@ -135,7 +150,7 @@ export function useHelixTableControls<T extends Record<string, unknown>>({
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
-      const api = gridApiRef.current;
+      const api = getLiveApi();
       if (!api) {
         return;
       }
@@ -158,7 +173,13 @@ export function useHelixTableControls<T extends Record<string, unknown>>({
       setVisibleStart(firstDisplayed >= 0 ? firstDisplayed + 1 : 0);
       setVisibleEnd(lastDisplayed >= 0 ? lastDisplayed + 1 : 0);
     });
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelAnimationFrame(frame);
+      const api = gridApiRef.current;
+      if (api?.isDestroyed?.()) {
+        gridApiRef.current = null;
+      }
+    };
   }, [autoFitToken]);
 
   useEffect(() => {
@@ -172,7 +193,7 @@ export function useHelixTableControls<T extends Record<string, unknown>>({
       if (!hasFilters) {
         return;
       }
-      const api = gridApiRef.current;
+      const api = getLiveApi();
       if (!api) {
         return;
       }

@@ -187,7 +187,7 @@ public static class SnapshotQueries
             command.CommandText = """
                 SELECT position_id, instrument_id, instrument_name, asset_class, currency,
                        quantity, direction, average_cost, last_update_ts, market_price,
-                       market_data_ts, notional, market_value, book
+                       market_data_ts, notional, market_value, realized_pnl, unrealized_pnl, total_pnl, book
                 FROM position
                 WHERE portfolio_id = @portfolioId
                   AND as_of_ts = @asOf
@@ -221,6 +221,9 @@ public static class SnapshotQueries
                     MarketDataTs: reader["market_data_ts"]?.ToString(),
                     Notional: reader["notional"] is DBNull ? null : Convert.ToDouble(reader["notional"]),
                     MarketValue: reader["market_value"] is DBNull ? null : Convert.ToDouble(reader["market_value"]),
+                    RealizedPnl: reader["realized_pnl"] is DBNull ? 0.0 : Convert.ToDouble(reader["realized_pnl"]),
+                    UnrealizedPnl: reader["unrealized_pnl"] is DBNull ? 0.0 : Convert.ToDouble(reader["unrealized_pnl"]),
+                    TotalPnl: reader["total_pnl"] is DBNull ? 0.0 : Convert.ToDouble(reader["total_pnl"]),
                     Book: reader["book"]?.ToString()
                 ));
             }
@@ -346,6 +349,9 @@ public sealed record PositionSnapshotRow(
     string? MarketDataTs,
     double? Notional,
     double? MarketValue,
+    double RealizedPnl,
+    double UnrealizedPnl,
+    double TotalPnl,
     string? Book
 );
 

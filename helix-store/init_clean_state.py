@@ -13,9 +13,9 @@ MARKET_DATA_SEED_PATH = ROOT / "helix-store" / "market_data_seed.json"
 INSTRUMENT_SEED_TRADES_PATH = ROOT / "helix-store" / "instrument_seed_trades.json"
 
 PORTFOLIOS = [
-    ("PF-EQ", "Equity", 1),
-    ("PF-FI", "Fixed Income", 2),
-    ("PF-CM", "Commodities", 3),
+    ("PF-CM", "Commodities"),
+    ("PF-EQ", "Equity"),
+    ("PF-FI", "Fixed Income"),
 ]
 
 BOOK_BY_ASSET_CLASS = {
@@ -53,10 +53,12 @@ def build_reference_data(
         )
         books.add(BOOK_BY_ASSET_CLASS.get(asset_class, "Fixed Income"))
 
-    return (
-        sorted(instruments.values(), key=lambda value: str(value["instrument_name"])),
-        sorted(books),
-    )
+    ordered_books: list[str] = []
+    for value in books:
+        if value not in ordered_books:
+            ordered_books.append(value)
+
+    return (list(instruments.values()), ordered_books)
 
 
 def main() -> None:
@@ -93,13 +95,13 @@ def main() -> None:
             conn.execute(f"DROP TABLE IF EXISTS {table}")
         conn.executescript(schema_sql)
 
-        for portfolio_id, name, sort_order in PORTFOLIOS:
+        for portfolio_id, name in PORTFOLIOS:
             conn.execute(
                 """
-                INSERT INTO portfolio (portfolio_id, name, sort_order, status, created_at)
-                VALUES (?, ?, ?, 'active', '2026-03-21T09:30:00Z')
+                INSERT INTO portfolio (portfolio_id, name, status, created_at)
+                VALUES (?, ?, 'active', '2026-03-21T09:30:00Z')
                 """,
-                (portfolio_id, name, sort_order),
+                (portfolio_id, name),
             )
 
         for instrument in instruments:

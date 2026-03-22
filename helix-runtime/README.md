@@ -10,12 +10,12 @@ publishes downstream update events to Kafka.
 
 Current execution path:
 
-1. Consume `portfolio.compute` and `trade.compute` from RabbitMQ
+1. Consume `trade.compute`, `position.pl.compute`, `portfolio.pl.compute`, and `portfolio.risk.compute` from RabbitMQ
 2. Load portfolio trades and market inputs from SQLite
 3. Recompute positions, P&L, and risk through `helix-core`
 4. Persist `position`, `pnl`, and `risk` snapshots
 5. Update trade processing status / notional
-6. Publish `portfolio.updated`, `pl.updated`, `risk.updated`, and `trade.updated` to Kafka
+6. Publish `position.updated`, `position.pl.updated`, `portfolio.pl.updated`, `portfolio.risk.updated`, and `trade.updated` to Kafka
 
 ## Package Structure
 
@@ -31,21 +31,24 @@ Current execution path:
 Current model:
 
 - `helix-rest` persists trades and emits Kafka `trade.created` for audit
-- `helix-rest` submits RabbitMQ `portfolio.compute` and `trade.compute` tasks
+- `helix-rest` submits RabbitMQ `position.pl.compute` and `trade.compute` tasks
 - `helix-runtime` consumes RabbitMQ tasks and performs the actual compute work
 - `helix-runtime` publishes state-change updates to Kafka
 
 Kafka topics actively used by runtime:
 
 - `trade.updated`
-- `portfolio.updated`
-- `pl.updated`
-- `risk.updated`
+- `position.updated`
+- `position.pl.updated`
+- `portfolio.pl.updated`
+- `portfolio.risk.updated`
 
 RabbitMQ queues actively used by runtime:
 
-- `portfolio.compute`
 - `trade.compute`
+- `position.pl.compute`
+- `portfolio.pl.compute`
+- `portfolio.risk.compute`
 
 ## CLI
 

@@ -14,7 +14,7 @@ from helix_core import (
     Trade,
 )
 
-from .models import PersistedAnalytics
+from .models import PersistedPortfolioSnapshots
 
 
 class StoreGateway(Protocol):
@@ -40,7 +40,7 @@ class StoreGateway(Protocol):
         *,
         market_data_as_of_ts: datetime,
         source_event_id: str,
-    ) -> PersistedAnalytics:
+    ) -> PersistedPortfolioSnapshots:
         """Persist recomputed positions, P&L, and risk snapshots."""
 
     def save_positions(
@@ -52,6 +52,12 @@ class StoreGateway(Protocol):
         source_event_id: str,
     ) -> list[str]:
         """Persist only position snapshots."""
+
+    def load_latest_positions(
+        self,
+        portfolio_id: str,
+    ) -> list[PositionSnapshot]:
+        """Load the latest persisted position snapshots for a portfolio."""
 
     def save_pnl(
         self,

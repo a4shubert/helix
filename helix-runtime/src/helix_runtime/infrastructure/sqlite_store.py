@@ -8,9 +8,9 @@ from datetime import UTC, date, datetime
 from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
-from helix_core import MarketInput, PortfolioAnalytics, Trade
+from helix_core import MarketInput, PortfolioAnalytics, PositionSnapshot, Trade
 
-from helix_runtime.application.models import PersistedAnalytics
+from helix_runtime.application.models import PersistedPortfolioSnapshots
 
 
 DEFAULT_VOLATILITY_BY_ASSET_CLASS = {
@@ -180,7 +180,7 @@ class SqliteHelixStore:
         *,
         market_data_as_of_ts: datetime,
         source_event_id: str,
-    ) -> PersistedAnalytics:
+    ) -> PersistedPortfolioSnapshots:
         position_snapshot_ids = self.save_positions(
             analytics.portfolio_id,
             analytics.positions,
@@ -196,7 +196,7 @@ class SqliteHelixStore:
             market_data_as_of_ts=market_data_as_of_ts,
         )
 
-        return PersistedAnalytics(
+        return PersistedPortfolioSnapshots(
             portfolio_id=analytics.portfolio_id,
             position_snapshot_ids=position_snapshot_ids,
             pnl_snapshot_id=pnl_snapshot_id,
@@ -225,9 +225,9 @@ class SqliteHelixStore:
                       snapshot_id, portfolio_id, position_id, instrument_id, instrument_name,
                       asset_class, currency, quantity, direction, average_cost,
                       last_update_ts, market_price, market_data_ts, notional,
-                      market_value, book, as_of_ts, source_event_id
+                      market_value, realized_pnl, unrealized_pnl, total_pnl, book, as_of_ts, source_event_id
                     )
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         snapshot_id,
@@ -245,6 +245,9 @@ class SqliteHelixStore:
                         _isoformat_utc(position.market_data_ts) if position.market_data_ts else None,
                         position.notional,
                         position.market_value,
+                        _round2(position.realized_pnl),
+                        _round2(position.unrealized_pnl),
+                        _round2(position.total_pnl),
                         position.book,
                         _isoformat_utc(valuation_ts),
                         source_event_id,
@@ -252,6 +255,61 @@ class SqliteHelixStore:
                 )
             connection.commit()
         return position_snapshot_ids
+
+    def load_latest_positions(
+        self,
+        portfolio_id: str,
+    ) -> list[PositionSnapshot]:
+        with self._connect() as connection:
+            effective_as_of = connection.execute(
+                """
+                SELECT MAX(as_of_ts)
+                FROM position
+                WHERE portfolio_id = ?
+                """,
+                (portfolio_id,),
+            ).fetchone()[0]
+
+            if effective_as_of is None:
+                return []
+
+            rows = connection.execute(
+                """
+                SELECT portfolio_id, position_id, instrument_id, instrument_name, asset_class,
+                       currency, quantity, direction, average_cost, last_update_ts, market_price,
+                       market_data_ts, notional, market_value, realized_pnl, unrealized_pnl,
+                       total_pnl, book
+                FROM position
+                WHERE portfolio_id = ?
+                  AND as_of_ts = ?
+                ORDER BY last_update_ts DESC, position_id
+                """,
+                (portfolio_id, effective_as_of),
+            ).fetchall()
+
+        return [
+            PositionSnapshot(
+                portfolio_id=str(row["portfolio_id"]),
+                position_id=str(row["position_id"]),
+                instrument_id=str(row["instrument_id"]),
+                instrument_name=str(row["instrument_name"]),
+                asset_class=str(row["asset_class"]),
+                currency=str(row["currency"]),
+                quantity=float(row["quantity"]),
+                direction=str(row["direction"]),
+                average_cost=float(row["average_cost"]),
+                last_update_ts=_parse_datetime(row["last_update_ts"]),
+                market_price=float(row["market_price"] or 0.0),
+                market_data_ts=_parse_datetime(row["market_data_ts"]),
+                notional=float(row["notional"] or 0.0),
+                market_value=float(row["market_value"] or 0.0),
+                realized_pnl=float(row["realized_pnl"] or 0.0),
+                unrealized_pnl=float(row["unrealized_pnl"] or 0.0),
+                total_pnl=float(row["total_pnl"] or 0.0),
+                book=row["book"],
+            )
+            for row in rows
+        ]
 
     def save_pnl(
         self,
