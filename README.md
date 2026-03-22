@@ -15,7 +15,7 @@ This README documents the **current implementation**, not an aspirational target
 ## 1) Current Architecture
 
 ```mermaid
-%%{init: {"theme":"base","themeVariables":{"background":"#ffffff","primaryTextColor":"#111111","lineColor":"#333333","edgeLabelBackground":"#ffffff"}}}%%
+%%{init: {"theme":"default","themeVariables":{"darkMode":false}}}%%
 flowchart LR
     web["helix-web"]
     rest["helix-rest"]
