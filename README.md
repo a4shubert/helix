@@ -208,6 +208,20 @@ Windows / PowerShell:
 ./scripts/win/stop.ps1
 ```
 
+Launch Jupyter notebooks against the Helix runtime environment:
+
+Linux / macOS:
+
+```bash
+./scripts/linux/notebook_start.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/win/notebook_start.ps1
+```
+
 Default URLs:
 
 - REST API: `http://localhost:5057`
