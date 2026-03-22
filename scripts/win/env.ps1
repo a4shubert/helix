@@ -4,6 +4,20 @@
 
 $RepoRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
 
+$DotnetHome = Join-Path $HOME ".dotnet"
+$DotnetHomeExe = Join-Path $DotnetHome "dotnet"
+$DotnetHomeExeWin = Join-Path $DotnetHome "dotnet.exe"
+if ((Test-Path $DotnetHomeExe) -or (Test-Path $DotnetHomeExeWin)) {
+    if ($Env:PATH -notlike "$DotnetHome*") {
+        $Env:PATH = "$DotnetHome;$Env:PATH"
+    }
+    $DotnetTools = Join-Path $DotnetHome "tools"
+    if (Test-Path $DotnetTools -and $Env:PATH -notlike "$DotnetTools*") {
+        $Env:PATH = "$DotnetTools;$Env:PATH"
+    }
+    $Env:DOTNET_ROOT = $DotnetHome
+}
+
 if (-not $Env:HELIX_DB_PATH -or [string]::IsNullOrWhiteSpace($Env:HELIX_DB_PATH)) {
     $Env:HELIX_DB_PATH = Join-Path $RepoRoot "helix-store/helix.db"
 }
@@ -83,3 +97,7 @@ Write-Host "[env] HELIX_RABBITMQ_MANAGEMENT_URL=$Env:HELIX_RABBITMQ_MANAGEMENT_U
 Write-Host "[env] HELIX_JAVA_HOME=$Env:HELIX_JAVA_HOME"
 Write-Host "[env] HELIX_KAFKA_UI_URL=$Env:HELIX_KAFKA_UI_URL"
 Write-Host "[env] HELIX_KAFKA_UI_JAR=$Env:HELIX_KAFKA_UI_JAR"
+if (Get-Command dotnet -ErrorAction SilentlyContinue) {
+    Write-Host "[env] DOTNET_BIN=$((Get-Command dotnet).Source)"
+    Write-Host "[env] DOTNET_SDK=$(dotnet --version)"
+}

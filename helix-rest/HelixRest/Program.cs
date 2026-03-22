@@ -319,9 +319,17 @@ app.MapGet("/api/trades", async (
     });
 }).WithTags("trades");
 
-app.MapGet("/api/trade-form-options", async (HelixContext db) =>
+app.MapGet("/api/trade-form-options", async (HelixContext db, CancellationToken cancellationToken) =>
 {
-    var instruments = await db.Instruments
+    var marketRows = await LoadLatestMarketDataRowsAsync(db, cancellationToken);
+    var marketPriceByInstrument = marketRows
+        .Where(x => x.Price.HasValue)
+        .ToDictionary(
+            x => x.InstrumentId,
+            x => x.Price!.Value,
+            StringComparer.OrdinalIgnoreCase);
+
+    var instrumentRows = await db.Instruments
         .AsNoTracking()
         .Where(x => x.Active)
         .Select(x => new
@@ -332,6 +340,19 @@ app.MapGet("/api/trade-form-options", async (HelixContext db) =>
             currency = x.Currency,
         })
         .ToListAsync();
+
+    var instruments = instrumentRows
+        .Select(x => new
+        {
+            x.instrumentId,
+            x.instrumentName,
+            x.assetClass,
+            x.currency,
+            marketPrice = marketPriceByInstrument.TryGetValue(x.instrumentId, out var price)
+                ? price
+                : (double?)null,
+        })
+        .ToList();
 
     var books = await db.Books
         .AsNoTracking()
@@ -411,7 +432,7 @@ app.MapGet("/api/pnl", async (string portfolioId, DateTime? asOf, HelixContext d
         {
             metricKey = column,
             label = ToMetricLabel(column),
-            value = snapshot?.MetricValues.GetValueOrDefault(column) ?? 0.0,
+            value = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault(column) ?? 0.0),
             isPrimary = index == 0
         })
         .ToList();
@@ -420,9 +441,9 @@ app.MapGet("/api/pnl", async (string portfolioId, DateTime? asOf, HelixContext d
     {
         snapshotId = snapshot?.SnapshotId ?? string.Empty,
         portfolioId = snapshot?.PortfolioId ?? portfolioId,
-        totalPnl = snapshot?.MetricValues.GetValueOrDefault("total_pnl") ?? 0.0,
-        realizedPnl = snapshot?.MetricValues.GetValueOrDefault("realized_pnl") ?? 0.0,
-        unrealizedPnl = snapshot?.MetricValues.GetValueOrDefault("unrealized_pnl") ?? 0.0,
+        totalPnl = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("total_pnl") ?? 0.0),
+        realizedPnl = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("realized_pnl") ?? 0.0),
+        unrealizedPnl = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("unrealized_pnl") ?? 0.0),
         valuationTs = snapshot?.ValuationTs ?? string.Empty,
         marketDataAsOfTs = snapshot?.MarketDataAsOfTs ?? string.Empty,
         positionAsOfTs = snapshot?.PositionAsOfTs ?? string.Empty,
@@ -445,7 +466,7 @@ app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext 
         {
             metricKey = column,
             label = ToMetricLabel(column),
-            value = snapshot?.MetricValues.GetValueOrDefault(column) ?? 0.0,
+            value = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault(column) ?? 0.0),
             isPrimary = index == 0
         })
         .ToList();
@@ -454,9 +475,9 @@ app.MapGet("/api/risk", async (string portfolioId, DateTime? asOf, HelixContext 
     {
         snapshotId = snapshot?.SnapshotId ?? string.Empty,
         portfolioId = snapshot?.PortfolioId ?? portfolioId,
-        delta = snapshot?.MetricValues.GetValueOrDefault("delta") ?? 0.0,
-        gamma = snapshot?.MetricValues.GetValueOrDefault("gamma") ?? 0.0,
-        var95 = snapshot?.MetricValues.GetValueOrDefault("var_95") ?? 0.0,
+        delta = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("delta") ?? 0.0),
+        gamma = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("gamma") ?? 0.0),
+        var95 = RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("var_95") ?? 0.0),
         valuationTs = snapshot?.ValuationTs ?? string.Empty,
         marketDataAsOfTs = snapshot?.MarketDataAsOfTs ?? string.Empty,
         positionAsOfTs = snapshot?.PositionAsOfTs ?? string.Empty,
@@ -568,7 +589,7 @@ static async Task<SnapshotRow?> LoadLatestSnapshotRowAsync(
             continue;
         }
 
-        values[column] = Convert.ToDouble(raw);
+        values[column] = RoundToTwoDecimals(Convert.ToDouble(raw));
     }
 
     return new SnapshotRow(
@@ -678,6 +699,9 @@ static void EnsureAllowedSnapshotTable(string tableName)
         throw new InvalidOperationException($"Unsupported snapshot table '{tableName}'.");
     }
 }
+
+static double RoundToTwoDecimals(double value) =>
+    Math.Round(value, 2, MidpointRounding.AwayFromZero);
 
 static string ToMetricLabel(string metricKey)
 {
@@ -882,6 +906,35 @@ app.MapPut("/api/trades/{tradeId}", async (
         positionId = existingTrade.PositionId,
         status = "accepted",
         submittedAt
+    });
+}).WithTags("trades");
+
+app.MapDelete("/api/trades/{tradeId}", async (
+    string tradeId,
+    HelixContext db,
+    IPortfolioRecomputeTaskPublisher taskPublisher,
+    CancellationToken cancellationToken) =>
+{
+    var existingTrade = await db.Trades.FirstOrDefaultAsync(x => x.TradeId == tradeId, cancellationToken);
+    if (existingTrade is null)
+    {
+        return Results.NotFound(new { message = $"Trade '{tradeId}' not found." });
+    }
+
+    var portfolioId = existingTrade.PortfolioId;
+    db.Trades.Remove(existingTrade);
+    await db.SaveChangesAsync(cancellationToken);
+
+    var requestedAt = DateTime.UtcNow;
+    await taskPublisher.PublishPortfolioRecomputeAsync(portfolioId, null, requestedAt, cancellationToken);
+
+    return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
+    {
+        tradeId,
+        portfolioId,
+        status = "deleted-queued",
+        queue = BrokerNames.PortfolioRecomputeQueue,
+        requestedAt
     });
 }).WithTags("trades");
 

@@ -9,6 +9,8 @@ import {
   type TradeFormOptionsResponse,
 } from "@/lib/api/helix";
 import type { PortfolioTrade } from "@/lib/api/types";
+import { formatUkDate, parseUkDateToIso } from "@/lib/format/date";
+import { formatDecimal } from "@/lib/format/number";
 
 type TradeFormValues = {
   asset_class: string;
@@ -27,7 +29,7 @@ function toFormValues(_portfolioId: string, trade?: PortfolioTrade | null): Trad
     side: trade?.side ?? "BUY",
     quantity: trade ? String(trade.quantity) : "",
     price: trade ? String(trade.price) : "",
-    settlement_date: trade?.settlement_date ?? "2026-03-23",
+    settlement_date: formatUkDate(trade?.settlement_date ?? "2026-03-23"),
     book: trade?.book ?? "",
   };
 }
@@ -37,6 +39,9 @@ const emptyOptions: TradeFormOptionsResponse = {
   instruments: [],
   books: [],
 };
+
+const formControlClass =
+  "h-14 w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-4 py-3 text-white outline-none focus:border-[color:var(--color-accent)]";
 
 export function TradeFormModal({
   open,
@@ -56,6 +61,7 @@ export function TradeFormModal({
   const [isLoadingOptions, setIsLoadingOptions] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) {
@@ -64,6 +70,7 @@ export function TradeFormModal({
     setForm(toFormValues(portfolioId, trade));
     setIsSaving(false);
     setLoadError(null);
+    setFormError(null);
   }, [open, portfolioId, trade]);
 
   useEffect(() => {
@@ -74,6 +81,7 @@ export function TradeFormModal({
     let isCancelled = false;
     setIsLoadingOptions(true);
     setLoadError(null);
+    setFormError(null);
 
     void fetchTradeFormOptions()
       .then((response) => {
@@ -148,6 +156,7 @@ export function TradeFormModal({
     () => options.instruments.find((instrument) => instrument.instrumentId === form.instrument_id) ?? null,
     [form.instrument_id, options.instruments],
   );
+  const latestMarketPrice = selectedInstrument?.marketPrice;
 
   if (!open) {
     return null;
@@ -162,10 +171,16 @@ export function TradeFormModal({
     if (!selectedInstrument) {
       return;
     }
+    const settlementDate = parseUkDateToIso(form.settlement_date);
+    if (!settlementDate) {
+      setFormError("Settlement Date must be in DD/MM/YYYY format.");
+      return;
+    }
 
     const quantity = Number(form.quantity) || 0;
     const price = Number(form.price) || 0;
 
+    setFormError(null);
     setIsSaving(true);
     try {
       await onSave({
@@ -174,7 +189,7 @@ export function TradeFormModal({
         side: form.side,
         quantity,
         price,
-        settlementDate: form.settlement_date,
+        settlementDate,
         book: form.book.trim(),
         version: trade ? trade.version + 1 : 1,
       });
@@ -208,15 +223,20 @@ export function TradeFormModal({
             {loadError}
           </div>
         )}
+        {formError && (
+          <div className="mb-4 rounded-lg border border-rose-500/40 bg-rose-500/10 px-3 py-2 text-sm text-rose-200">
+            {formError}
+          </div>
+        )}
 
         <form className="space-y-5" onSubmit={handleSubmit}>
-          <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <label className="space-y-2 xl:col-span-1">
+          <div className="grid gap-4 md:grid-cols-3">
+            <label className="space-y-2">
               <span className="text-sm text-white">Asset Class</span>
               <select
                 value={form.asset_class}
                 onChange={(event) => updateField("asset_class", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                className={formControlClass}
                 required
                 disabled={isLoadingOptions || options.assetClasses.length === 0}
               >
@@ -229,12 +249,12 @@ export function TradeFormModal({
               </select>
             </label>
 
-            <label className="space-y-2 xl:col-span-3">
+            <label className="space-y-2">
               <span className="text-sm text-white">Instrument</span>
               <select
                 value={form.instrument_id}
                 onChange={(event) => updateField("instrument_id", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                className={formControlClass}
                 required
                 disabled={isLoadingOptions || filteredInstruments.length === 0}
               >
@@ -248,11 +268,21 @@ export function TradeFormModal({
             </label>
 
             <label className="space-y-2">
+              <span className="text-sm text-white">Latest Market Price</span>
+              <input
+                type="text"
+                readOnly
+                value={latestMarketPrice == null ? "N/A" : formatDecimal(latestMarketPrice)}
+                className="h-14 w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-4 py-3 text-white/90 outline-none"
+              />
+            </label>
+
+            <label className="space-y-2">
               <span className="text-sm text-white">Side</span>
               <select
                 value={form.side}
                 onChange={(event) => updateField("side", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                className={formControlClass}
               >
                 <option value="BUY">BUY</option>
                 <option value="SELL">SELL</option>
@@ -265,7 +295,7 @@ export function TradeFormModal({
                 step="any"
                 value={form.quantity}
                 onChange={(event) => updateField("quantity", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                className={formControlClass}
                 required
               />
             </label>
@@ -276,27 +306,17 @@ export function TradeFormModal({
                 step="any"
                 value={form.price}
                 onChange={(event) => updateField("price", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                className={formControlClass}
                 required
               />
             </label>
 
             <label className="space-y-2">
-              <span className="text-sm text-white">Settlement Date</span>
-              <input
-                type="date"
-                value={form.settlement_date}
-                onChange={(event) => updateField("settlement_date", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
-                required
-              />
-            </label>
-            <label className="space-y-2 xl:col-span-2">
               <span className="text-sm text-white">Book</span>
               <select
                 value={form.book}
                 onChange={(event) => updateField("book", event.target.value)}
-                className="w-full rounded-lg border border-[color:var(--color-border)] bg-[color:var(--color-bg)] px-3 py-2 text-white outline-none focus:border-[color:var(--color-accent)]"
+                className={formControlClass}
                 required
                 disabled={isLoadingOptions}
               >
@@ -307,6 +327,18 @@ export function TradeFormModal({
                   </option>
                 ))}
               </select>
+            </label>
+            <label className="space-y-2">
+              <span className="text-sm text-white">Settlement Date</span>
+              <input
+                type="text"
+                value={form.settlement_date}
+                onChange={(event) => updateField("settlement_date", event.target.value)}
+                className={formControlClass}
+                placeholder="DD/MM/YYYY"
+                inputMode="numeric"
+                required
+              />
             </label>
           </div>
 

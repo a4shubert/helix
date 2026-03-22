@@ -1,9 +1,10 @@
 "use client";
 
-import { startTransition, useEffect, useState } from "react";
+import { startTransition, useCallback, useEffect, useRef, useState } from "react";
 import {
   amendTrade,
   createTrade,
+  deleteTrade,
   fetchMarketData,
   fetchPnl,
   fetchPortfolio,
@@ -31,6 +32,12 @@ const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
 });
 
 export function PortfolioDashboard() {
+  const refreshInFlightRef = useRef(false);
+  const pendingRefreshRef = useRef<{
+    portfolioId: string;
+    showLoading: boolean;
+  } | null>(null);
+  const sseRefreshTimerRef = useRef<number | null>(null);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("PF-EQ");
   const [portfolioItems, setPortfolioItems] = useState<PortfolioListItem[]>([]);
   const [collapsedCards, setCollapsedCards] = useState({
@@ -56,13 +63,18 @@ export function PortfolioDashboard() {
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
   const valuationTimestamp = pnlSnapshot?.valuationTs ?? riskSnapshot?.valuationTs;
 
-  async function refreshPortfolio(
+  const refreshPortfolio = useCallback(async (
     portfolioId: string,
     options?: {
       showLoading?: boolean;
     },
-  ) {
+  ) => {
     const showLoading = options?.showLoading ?? false;
+    if (refreshInFlightRef.current) {
+      pendingRefreshRef.current = { portfolioId, showLoading };
+      return;
+    }
+    refreshInFlightRef.current = true;
     if (showLoading) {
       setIsLoading(true);
     }
@@ -88,11 +100,19 @@ export function PortfolioDashboard() {
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load portfolio data.");
     } finally {
+      refreshInFlightRef.current = false;
       if (showLoading) {
         setIsLoading(false);
       }
+      const pending = pendingRefreshRef.current;
+      if (pending) {
+        pendingRefreshRef.current = null;
+        void refreshPortfolio(pending.portfolioId, {
+          showLoading: pending.showLoading,
+        });
+      }
     }
-  }
+  }, []);
 
   function toggleCard(card: keyof typeof collapsedCards) {
     setCollapsedCards((current) => ({
@@ -107,6 +127,11 @@ export function PortfolioDashboard() {
     } else {
       await createTrade(trade);
     }
+    await refreshPortfolio(selectedPortfolio, { showLoading: false });
+  }
+
+  async function handleDeleteTrade(tradeId: string) {
+    await deleteTrade(tradeId);
     await refreshPortfolio(selectedPortfolio, { showLoading: false });
   }
 
@@ -155,30 +180,41 @@ export function PortfolioDashboard() {
 
   useEffect(() => {
     void refreshPortfolio(selectedPortfolio, { showLoading: true });
-  }, [selectedPortfolio]);
+  }, [selectedPortfolio, refreshPortfolio]);
 
   useEffect(() => {
     const eventSource = new EventSource(
       `${getHelixApiUrl()}/api/events?portfolioId=${selectedPortfolio}`,
     );
 
-    const refresh = () => {
-      void refreshPortfolio(selectedPortfolio, { showLoading: false });
+    const scheduleRefresh = () => {
+      if (sseRefreshTimerRef.current !== null) {
+        return;
+      }
+
+      sseRefreshTimerRef.current = window.setTimeout(() => {
+        sseRefreshTimerRef.current = null;
+        void refreshPortfolio(selectedPortfolio, { showLoading: false });
+      }, 150);
     };
 
-    eventSource.addEventListener("positions.updated", refresh);
-    eventSource.addEventListener("pl.updated", refresh);
-    eventSource.addEventListener("risk.updated", refresh);
-    eventSource.addEventListener("trade.updated", refresh);
-    eventSource.addEventListener("marketdata.updated", refresh);
+    eventSource.addEventListener("positions.updated", scheduleRefresh);
+    eventSource.addEventListener("pl.updated", scheduleRefresh);
+    eventSource.addEventListener("risk.updated", scheduleRefresh);
+    eventSource.addEventListener("trade.updated", scheduleRefresh);
+    eventSource.addEventListener("marketdata.updated", scheduleRefresh);
     eventSource.onerror = () => {
       eventSource.close();
     };
 
     return () => {
+      if (sseRefreshTimerRef.current !== null) {
+        window.clearTimeout(sseRefreshTimerRef.current);
+        sseRefreshTimerRef.current = null;
+      }
       eventSource.close();
     };
-  }, [selectedPortfolio]);
+  }, [selectedPortfolio, refreshPortfolio]);
 
   return (
     <section className="flex h-full min-h-full w-full gap-6">
@@ -215,6 +251,7 @@ export function PortfolioDashboard() {
           collapsed={collapsedCards.trades}
           onToggle={() => toggleCard("trades")}
           onSaveTrade={handleSaveTrade}
+          onDeleteTrade={handleDeleteTrade}
         />
         <PortfolioPositionsTable
           portfolio={portfolio}

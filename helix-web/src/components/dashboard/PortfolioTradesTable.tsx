@@ -6,6 +6,7 @@ import type {
   FilterChangedEvent,
   GridApi,
   GridReadyEvent,
+  PaginationChangedEvent,
   SelectionChangedEvent,
 } from "ag-grid-community";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -15,6 +16,7 @@ import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import type { CreateTradeRequest } from "@/lib/api/helix";
 import type { PortfolioTrade } from "@/lib/api/types";
+import { formatUkDate, formatUkDateTime } from "@/lib/format/date";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
 
 function normalizeTrade(trade: PortfolioTrade | Record<string, unknown>): PortfolioTrade {
@@ -78,8 +80,22 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     type: "numericColumn",
     valueFormatter: formatDecimalCell,
   },
-  { field: "trade_timestamp", headerName: "Trade Timestamp", minWidth: 220 },
-  { field: "settlement_date", headerName: "Settlement Date", minWidth: 155 },
+  {
+    field: "trade_timestamp",
+    headerName: "Trade Timestamp",
+    minWidth: 220,
+    filter: "agTextColumnFilter",
+    cellDataType: "text",
+    filterValueGetter: (params) => formatUkDateTime((params.data as PortfolioTrade | undefined)?.trade_timestamp),
+  },
+  {
+    field: "settlement_date",
+    headerName: "Settlement Date",
+    minWidth: 155,
+    filter: "agTextColumnFilter",
+    cellDataType: "text",
+    filterValueGetter: (params) => formatUkDate((params.data as PortfolioTrade | undefined)?.settlement_date),
+  },
   { field: "book", headerName: "Book", minWidth: 160 },
   { field: "status", headerName: "Status", minWidth: 120 },
   {
@@ -89,8 +105,22 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     type: "numericColumn",
     valueFormatter: formatIntegerCell,
   },
-  { field: "created_at", headerName: "Created At", minWidth: 210 },
-  { field: "updated_at", headerName: "Updated At", minWidth: 210 },
+  {
+    field: "created_at",
+    headerName: "Created At",
+    minWidth: 210,
+    filter: "agTextColumnFilter",
+    cellDataType: "text",
+    filterValueGetter: (params) => formatUkDateTime((params.data as PortfolioTrade | undefined)?.created_at),
+  },
+  {
+    field: "updated_at",
+    headerName: "Updated At",
+    minWidth: 210,
+    filter: "agTextColumnFilter",
+    cellDataType: "text",
+    filterValueGetter: (params) => formatUkDateTime((params.data as PortfolioTrade | undefined)?.updated_at),
+  },
 ];
 
 const defaultColDef: ColDef<PortfolioTrade> = {
@@ -103,7 +133,7 @@ const defaultColDef: ColDef<PortfolioTrade> = {
         if (
           params.column.getColId() === "settlement_date"
         ) {
-          return new Date(`${params.value}T00:00:00Z`).toLocaleDateString("en-GB");
+          return formatUkDate(params.value);
         }
 
         if (
@@ -111,7 +141,7 @@ const defaultColDef: ColDef<PortfolioTrade> = {
           params.column.getColId() === "created_at" ||
           params.column.getColId() === "updated_at"
         ) {
-          return new Date(params.value).toLocaleString("en-GB", { hour12: false });
+          return formatUkDateTime(params.value);
         }
       }
 
@@ -125,7 +155,7 @@ const defaultColDef: ColDef<PortfolioTrade> = {
   },
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 5;
 
 const helpItems = [
   "Single click focuses a cell; copy with Cmd+C (macOS) or Ctrl+C (Windows/Linux).",
@@ -134,7 +164,7 @@ const helpItems = [
   "Use the X button to clear any selected rows (de-select all).",
   "Use the filter-reset button to clear all column filters.",
   "Use Fit Columns to size by header and Fit Data to auto-size to visible content.",
-  "Pagination buttons move through the static trades dataset page by page; filters affect only the current page in this mock setup.",
+  "Pagination buttons move through the filtered trades dataset page by page.",
 ];
 
 export function PortfolioTradesTable({
@@ -143,32 +173,48 @@ export function PortfolioTradesTable({
   collapsed,
   onToggle,
   onSaveTrade,
+  onDeleteTrade,
 }: {
   portfolioId: string;
   trades: PortfolioTrade[];
   collapsed: boolean;
   onToggle: () => void;
   onSaveTrade: (trade: CreateTradeRequest, amendTradeId?: string) => Promise<void>;
+  onDeleteTrade: (tradeId: string) => Promise<void>;
 }) {
   const gridApiRef = useRef<GridApi<PortfolioTrade> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [visibleStart, setVisibleStart] = useState(0);
+  const [visibleEnd, setVisibleEnd] = useState(0);
+  const [visibleTotalRows, setVisibleTotalRows] = useState(0);
   const [selectedCount, setSelectedCount] = useState(0);
   const [hasFilters, setHasFilters] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<PortfolioTrade | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formSeed, setFormSeed] = useState(0);
+  const [isDeleting, setIsDeleting] = useState(false);
   const normalizedTrades = useMemo(
     () => trades.map((trade) => normalizeTrade(trade as PortfolioTrade | Record<string, unknown>)),
     [trades],
   );
   const totalRows = normalizedTrades.length;
-  const lastPage = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-  const currentRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return normalizedTrades.slice(start, start + PAGE_SIZE);
-  }, [currentPage, normalizedTrades]);
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
+
+  function refreshPaginationState(api: GridApi<PortfolioTrade>) {
+    const nextCurrent = (api.paginationGetCurrentPage?.() ?? 0) + 1;
+    const nextLast = Math.max(1, api.paginationGetTotalPages?.() ?? 1);
+    const displayed = api.getDisplayedRowCount?.() ?? 0;
+    const firstDisplayed = api.getFirstDisplayedRowIndex?.() ?? -1;
+    const lastDisplayed = api.getLastDisplayedRowIndex?.() ?? -1;
+
+    setCurrentPage(nextCurrent);
+    setLastPage(nextLast);
+    setVisibleTotalRows(displayed);
+    setVisibleStart(firstDisplayed >= 0 ? firstDisplayed + 1 : 0);
+    setVisibleEnd(lastDisplayed >= 0 ? lastDisplayed + 1 : 0);
+  }
 
   function handleFitColumnsToHeader() {
     const api = gridApiRef.current;
@@ -199,9 +245,12 @@ export function PortfolioTradesTable({
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       handleFitColumnsToData();
+      if (gridApiRef.current) {
+        refreshPaginationState(gridApiRef.current);
+      }
     });
     return () => cancelAnimationFrame(frame);
-  }, [currentRows]);
+  }, [normalizedTrades]);
 
   function handleDownloadCsv() {
     const api = gridApiRef.current;
@@ -222,7 +271,44 @@ export function PortfolioTradesTable({
     api.setFilterModel(null);
     api.onFilterChanged?.();
     setHasFilters(false);
-    setCurrentPage(1);
+    api.paginationGoToFirstPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToFirstPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToFirstPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToPreviousPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToPreviousPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToNextPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToNextPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToLastPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToLastPage?.();
+    refreshPaginationState(api);
   }
 
   function handleClearSelection() {
@@ -236,6 +322,21 @@ export function PortfolioTradesTable({
     setIsFormOpen(true);
   }
 
+  async function handleDeleteSelectedTrade() {
+    if (!selectedTrade || isDeleting) {
+      return;
+    }
+    setIsDeleting(true);
+    try {
+      await onDeleteTrade(selectedTrade.trade_id);
+      gridApiRef.current?.deselectAll();
+      setSelectedTrade(null);
+      setSelectedCount(0);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
+
   useEffect(() => {
     function onKeyDown(event: KeyboardEvent) {
       if (event.key !== "Escape") {
@@ -247,7 +348,15 @@ export function PortfolioTradesTable({
       if (!hasFilters) {
         return;
       }
-      handleResetFilters();
+      const api = gridApiRef.current;
+      if (!api) {
+        return;
+      }
+      api.setFilterModel(null);
+      api.onFilterChanged?.();
+      setHasFilters(false);
+      api.paginationGoToFirstPage?.();
+      refreshPaginationState(api);
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -259,7 +368,7 @@ export function PortfolioTradesTable({
       title="Trades"
       collapsed={collapsed}
       onToggle={onToggle}
-      expandedClassName="h-[780px] shrink-0"
+      expandedClassName="h-[390px] shrink-0"
     >
       <div className="mb-4 mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[color:var(--color-muted)]">
@@ -270,6 +379,23 @@ export function PortfolioTradesTable({
             title={selectedTrade ? "Amend selected trade" : "Add new trade"}
           >
             {selectedTrade ? "Amend" : "Add"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              void handleDeleteSelectedTrade();
+            }}
+            disabled={!selectedTrade || isDeleting}
+            className={[
+              "inline-flex shrink-0 items-center justify-center rounded-md border px-3 py-1 text-sm font-medium",
+              "border-rose-500/50 text-rose-300",
+              selectedTrade && !isDeleting
+                ? "hover:bg-rose-500/10"
+                : "cursor-not-allowed opacity-50",
+            ].join(" ")}
+            title={selectedTrade ? "Delete selected trade" : "Select one trade to delete"}
+          >
+            {isDeleting ? "Deleting..." : "Delete"}
           </button>
           <button
             type="button"
@@ -300,24 +426,17 @@ export function PortfolioTradesTable({
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="mr-1 text-sm text-[color:var(--color-muted)]">
-            {(() => {
-              const start = (currentPage - 1) * PAGE_SIZE + 1;
-              const end = (currentPage - 1) * PAGE_SIZE + currentRows.length;
-
-              return (
-                <>
-                  Page {currentPage} of {lastPage}; Rows: {currentRows.length ? `${start}-${end}` : "0"};
-                  Total Rows {totalRows}
-                </>
-              );
-            })()}
+            <>
+              Page {currentPage} of {lastPage}; Rows: {visibleStart && visibleEnd ? `${visibleStart}-${visibleEnd}` : "0"};
+              ; Total Rows {visibleTotalRows} (All {totalRows})
+            </>
           </div>
 
           <button
             type="button"
             aria-disabled={!hasPrev}
             disabled={!hasPrev}
-            onClick={() => setCurrentPage(1)}
+            onClick={handleGoToFirstPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -335,7 +454,7 @@ export function PortfolioTradesTable({
             type="button"
             aria-disabled={!hasPrev}
             disabled={!hasPrev}
-            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            onClick={handleGoToPreviousPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -352,7 +471,7 @@ export function PortfolioTradesTable({
             type="button"
             aria-disabled={!hasNext}
             disabled={!hasNext}
-            onClick={() => setCurrentPage((page) => Math.min(lastPage, page + 1))}
+            onClick={handleGoToNextPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -369,7 +488,7 @@ export function PortfolioTradesTable({
             type="button"
             aria-disabled={!hasNext}
             disabled={!hasNext}
-            onClick={() => setCurrentPage(lastPage)}
+            onClick={handleGoToLastPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -424,7 +543,7 @@ export function PortfolioTradesTable({
 
       <div className="min-h-0 flex-1 w-full">
         <HelixAgTable
-          rowData={currentRows}
+          rowData={normalizedTrades}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           rowIdField="trade_id"
@@ -432,7 +551,11 @@ export function PortfolioTradesTable({
             gridApiRef.current = event.api;
             requestAnimationFrame(() => {
               handleFitColumnsToData();
+              refreshPaginationState(event.api);
             });
+          }}
+          onPaginationChanged={(event: PaginationChangedEvent<PortfolioTrade>) => {
+            refreshPaginationState(event.api);
           }}
           onSelectionChanged={(event: SelectionChangedEvent<PortfolioTrade>) => {
             const selectedRows = event.api.getSelectedRows();
@@ -451,9 +574,14 @@ export function PortfolioTradesTable({
           onFilterChanged={(event: FilterChangedEvent<PortfolioTrade>) => {
             const filterModel = event.api.getFilterModel();
             setHasFilters(Object.keys(filterModel ?? {}).length > 0);
-            setCurrentPage(1);
+            event.api.paginationGoToFirstPage?.();
+            refreshPaginationState(event.api);
           }}
           gridOptions={{
+            pagination: true,
+            paginationPageSize: PAGE_SIZE,
+            paginationPageSizeSelector: false,
+            suppressPaginationPanel: true,
             rowSelection: {
               mode: "singleRow",
               enableClickSelection: false,

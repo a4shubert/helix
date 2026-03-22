@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { formatUkTime } from "@/lib/format/date";
 
 type CityClock = {
   label: string;
@@ -30,13 +31,7 @@ export function Clocks({
       const next: Record<string, string> = {};
 
       for (const city of cities) {
-        next[city.label] = new Intl.DateTimeFormat("en-GB", {
-          hour: "2-digit",
-          minute: "2-digit",
-          second: showSeconds ? "2-digit" : undefined,
-          hour12: false,
-          timeZone: city.zone,
-        }).format(new Date());
+        next[city.label] = formatUkTime(new Date(), city.zone, showSeconds);
       }
 
       setTimes(next);

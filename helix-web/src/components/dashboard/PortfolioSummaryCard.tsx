@@ -1,27 +1,19 @@
 import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
-import { formatSignedInteger } from "@/lib/format/number";
+import { formatSignedDecimal } from "@/lib/format/number";
 import type { MetricValue } from "@/lib/api/types";
+import { formatUkDateTime } from "@/lib/format/date";
 
 function formatAsOfTimestamp(timestamp?: string | null): string | undefined {
   if (!timestamp) {
     return undefined;
   }
 
-  const date = new Date(timestamp);
-  if (Number.isNaN(date.getTime())) {
+  const formatted = formatUkDateTime(timestamp);
+  if (!formatted) {
     return undefined;
   }
 
-  return `(${new Intl.DateTimeFormat("en-GB", {
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-    timeZone: "UTC",
-  }).format(date).replaceAll(",", "")})`;
+  return `(${formatted})`;
 }
 
 function MetricRows({ metrics }: { metrics: MetricValue[] }) {
@@ -40,7 +32,7 @@ function MetricRows({ metrics }: { metrics: MetricValue[] }) {
                 : "font-medium text-[#f87171] drop-shadow-[0_0_10px_rgba(248,113,113,0.30)]"
             }`}
           >
-            {formatSignedInteger(metric.value)}
+            {formatSignedDecimal(metric.value)}
           </span>
         </div>
       ))}
@@ -69,7 +61,7 @@ export function PortfolioSummaryCard({
       title="P&L Summary and Risk"
       subtitle={subtitle}
       collapsed={collapsed}
-      collapsedValue={formatSignedInteger(totalPnL)}
+      collapsedValue={formatSignedDecimal(totalPnL)}
       collapsedValuePositive={totalPnL >= 0}
       onToggle={onToggle}
     >

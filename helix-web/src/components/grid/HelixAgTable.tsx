@@ -12,6 +12,7 @@ import type {
   FilterChangedEvent,
   GridApi,
   GridOptions,
+  PaginationChangedEvent,
   GridReadyEvent,
   SelectionChangedEvent,
   SortChangedEvent,
@@ -39,6 +40,7 @@ export type HelixAgTableProps<T extends Record<string, unknown>> = {
   onGridReady?: (event: GridReadyEvent<T>) => void;
   onFilterChanged?: (event: FilterChangedEvent<T>) => void;
   onSortChanged?: (event: SortChangedEvent<T>) => void;
+  onPaginationChanged?: (event: PaginationChangedEvent<T>) => void;
   onSelectionChanged?: (event: SelectionChangedEvent<T>) => void;
   onCellClicked?: (event: CellClickedEvent<T>) => void;
   onCellDoubleClicked?: (event: CellDoubleClickedEvent<T>) => void;
@@ -59,6 +61,7 @@ export function HelixAgTable<T extends Record<string, unknown>>({
   onGridReady,
   onFilterChanged,
   onSortChanged,
+  onPaginationChanged,
   onSelectionChanged,
   onCellClicked,
   onCellDoubleClicked,
@@ -151,6 +154,28 @@ export function HelixAgTable<T extends Record<string, unknown>>({
     const isoMatch = /^(\d{4}-\d{2}-\d{2})/.exec(text);
     if (isoMatch) {
       return isoMatch[1];
+    }
+
+    const ukMatch = /^(\d{1,2})[\/.\-](\d{1,2})[\/.\-](\d{4})$/.exec(text);
+    if (ukMatch) {
+      const day = Number(ukMatch[1]);
+      const month = Number(ukMatch[2]);
+      const year = Number(ukMatch[3]);
+      if (
+        Number.isInteger(day) &&
+        Number.isInteger(month) &&
+        Number.isInteger(year) &&
+        year >= 1000 &&
+        month >= 1 &&
+        month <= 12 &&
+        day >= 1 &&
+        day <= 31
+      ) {
+        const yyyy = String(year).padStart(4, "0");
+        const mm = String(month).padStart(2, "0");
+        const dd = String(day).padStart(2, "0");
+        return `${yyyy}-${mm}-${dd}`;
+      }
     }
 
     const ms = Date.parse(text);
@@ -443,6 +468,7 @@ export function HelixAgTable<T extends Record<string, unknown>>({
           }}
           onFilterChanged={onFilterChanged}
           onSortChanged={onSortChanged}
+          onPaginationChanged={onPaginationChanged}
           onSelectionChanged={onSelectionChanged}
           onCellClicked={onCellClicked}
           onCellDoubleClicked={onCellDoubleClicked}
