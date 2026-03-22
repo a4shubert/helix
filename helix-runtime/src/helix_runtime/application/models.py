@@ -7,15 +7,6 @@ from datetime import datetime
 
 
 @dataclass(frozen=True)
-class TradeCreatedEvent:
-    """Domain event emitted when a trade has been accepted by the REST layer."""
-
-    trade_id: str
-    portfolio_id: str
-    occurred_at: datetime
-
-
-@dataclass(frozen=True)
 class PersistedAnalytics:
     """Identifiers of the snapshots written for a recomputed portfolio."""
 
@@ -35,16 +26,6 @@ class PortfolioUpdateEvent:
     portfolio_id: str
     snapshot_id: str
     occurred_at: datetime
-
-
-@dataclass(frozen=True)
-class TradeProcessingResult:
-    """Result returned by the runtime processor for observability/testing."""
-
-    trade_id: str
-    portfolio_id: str
-    persisted: PersistedAnalytics
-    published_events: list[PortfolioUpdateEvent]
 
 
 @dataclass(frozen=True)

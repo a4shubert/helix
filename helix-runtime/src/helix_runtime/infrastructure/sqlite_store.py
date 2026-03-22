@@ -13,9 +13,9 @@ from helix_core import MarketInput, PortfolioAnalytics, Trade
 from helix_runtime.application.models import PersistedAnalytics
 
 
-DEFAULT_RISK_WEIGHT_BY_ASSET_CLASS = {
+DEFAULT_VOLATILITY_BY_ASSET_CLASS = {
     "Equity": 0.25,
-    "Fixed Income": 0.12,
+    "Fixed Income": 0.08,
     "Commodity": 0.30,
 }
 
@@ -113,7 +113,7 @@ class SqliteHelixStore:
         with self._connect() as connection:
             market_rows = connection.execute(
                 f"""
-                SELECT instrument_id, price, updated_at
+                SELECT instrument_id, price, volatility, updated_at
                 FROM market_data
                 WHERE instrument_id IN ({placeholders})
                 """,
@@ -131,10 +131,13 @@ class SqliteHelixStore:
             ).fetchall()
 
         latest_market_price: dict[str, float] = {}
+        latest_market_volatility: dict[str, float] = {}
         latest_market_ts: dict[str, datetime] = {}
         for row in market_rows:
             instrument_id = str(row["instrument_id"])
             latest_market_price[instrument_id] = float(row["price"])
+            if row["volatility"] is not None:
+                latest_market_volatility[instrument_id] = float(row["volatility"])
             latest_market_ts[instrument_id] = _parse_datetime(row["updated_at"])
 
         latest_position_price: dict[str, float] = {}
@@ -155,11 +158,14 @@ class SqliteHelixStore:
                 latest_position_price.get(instrument_id, trade.price),
             )
 
-            risk_weight = DEFAULT_RISK_WEIGHT_BY_ASSET_CLASS.get(trade.asset_class, 0.20)
+            volatility = latest_market_volatility.get(
+                instrument_id,
+                DEFAULT_VOLATILITY_BY_ASSET_CLASS.get(trade.asset_class, 0.20),
+            )
             market_inputs[instrument_id] = MarketInput(
                 instrument_id=instrument_id,
                 market_price=market_price,
-                risk_weight=risk_weight,
+                volatility=volatility,
                 market_data_timestamp=
                 latest_market_ts.get(instrument_id)
                 or latest_position_ts.get(instrument_id)
@@ -290,16 +296,17 @@ class SqliteHelixStore:
             connection.execute(
                 """
                 INSERT OR REPLACE INTO risk (
-                  snapshot_id, portfolio_id, delta, gamma, var_95,
+                  snapshot_id, portfolio_id, delta, gross_exposure, net_exposure, var_95,
                   valuation_ts, market_data_as_of_ts, position_as_of_ts
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     snapshot_id,
                     risk.portfolio_id,
                     _round2(risk.delta),
-                    _round2(risk.gamma),
+                    _round2(risk.gross_exposure),
+                    _round2(risk.net_exposure),
                     _round2(risk.var_95),
                     _isoformat_utc(risk.valuation_ts),
                     _isoformat_utc(market_data_as_of_ts),

@@ -15,14 +15,14 @@ public sealed class RabbitMqTaskQueuePublisher : ITaskQueuePublisher
         _options = options.Value;
     }
 
-    public Task PublishPortfolioRecomputeAsync(
+    public Task PublishPortfolioComputeAsync(
         string portfolioId,
         string? sourceEventId,
         DateTime requestedAt,
         CancellationToken cancellationToken)
         => PublishTaskAsync(
-            _options.PortfolioRecomputeQueue,
-            BrokerTopology.PortfolioRecomputeQueue,
+            _options.PortfolioComputeQueue,
+            BrokerTopology.PortfolioComputeQueue,
             portfolioId,
             sourceEventId,
             requestedAt,

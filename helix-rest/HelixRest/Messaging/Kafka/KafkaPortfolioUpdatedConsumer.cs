@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace HelixRest.Messaging.Kafka;
 
-public sealed class KafkaPortfolioUpdatesConsumer : BackgroundService
+public sealed class KafkaPortfolioUpdatedConsumer : BackgroundService
 {
     private static readonly JsonSerializerOptions JsonOptions = new()
     {
@@ -17,12 +17,12 @@ public sealed class KafkaPortfolioUpdatesConsumer : BackgroundService
 
     private readonly KafkaOptions _options;
     private readonly PortfolioUpdateBroadcaster _broadcaster;
-    private readonly ILogger<KafkaPortfolioUpdatesConsumer> _logger;
+    private readonly ILogger<KafkaPortfolioUpdatedConsumer> _logger;
 
-    public KafkaPortfolioUpdatesConsumer(
+    public KafkaPortfolioUpdatedConsumer(
         IOptions<KafkaOptions> options,
         PortfolioUpdateBroadcaster broadcaster,
-        ILogger<KafkaPortfolioUpdatesConsumer> logger)
+        ILogger<KafkaPortfolioUpdatedConsumer> logger)
     {
         _options = options.Value;
         _broadcaster = broadcaster;

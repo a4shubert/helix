@@ -7,4 +7,10 @@ public interface ITradeEventPublisher
         string portfolioId,
         DateTime occurredAt,
         CancellationToken cancellationToken);
+
+    Task PublishTradeDeletedAsync(
+        string tradeId,
+        string portfolioId,
+        DateTime occurredAt,
+        CancellationToken cancellationToken);
 }

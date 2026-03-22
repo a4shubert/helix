@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
@@ -61,19 +60,13 @@ class KafkaUpdatePublisher:
         return self._producer
 
 
-@dataclass(frozen=True)
-class PublishedRabbitMqTask:
-    queue: str
-    payload: dict[str, object]
-
-
 class RabbitMqTaskPublisher:
     """Publish operational tasks to RabbitMQ queues."""
 
     def __init__(self, config: RabbitMqConfig) -> None:
         self._config = config
 
-    def publish_task(self, queue: str, task: RabbitMqTask) -> PublishedRabbitMqTask:
+    def publish_task(self, queue: str, task: RabbitMqTask) -> dict[str, object]:
         payload = task.to_payload()
         connection = self._open_connection()
         try:
@@ -88,7 +81,7 @@ class RabbitMqTaskPublisher:
         finally:
             if connection.is_open:
                 connection.close()
-        return PublishedRabbitMqTask(queue=queue, payload=payload)
+        return payload
 
     def _open_connection(self):
         try:

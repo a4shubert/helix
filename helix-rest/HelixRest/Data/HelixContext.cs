@@ -124,7 +124,8 @@ public class HelixContext : DbContext
             entity.Property(x => x.SnapshotId).HasColumnName("snapshot_id");
             entity.Property(x => x.PortfolioId).HasColumnName("portfolio_id");
             entity.Property(x => x.Delta).HasColumnName("delta");
-            entity.Property(x => x.Gamma).HasColumnName("gamma");
+            entity.Property(x => x.GrossExposure).HasColumnName("gross_exposure");
+            entity.Property(x => x.NetExposure).HasColumnName("net_exposure");
             entity.Property(x => x.Var95).HasColumnName("var_95");
             entity.Property(x => x.ValuationTs).HasColumnName("valuation_ts");
             entity.Property(x => x.MarketDataAsOfTs).HasColumnName("market_data_as_of_ts");

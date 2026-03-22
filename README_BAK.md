@@ -21,7 +21,6 @@ This README documents the **current implementation**, not an aspirational target
 - **RabbitMQ is the execution trigger** for compute work.
 - **Kafka is audit/update stream** for state-change notifications.
 - Runtime service (`run-service`) consumes RabbitMQ only.
-- Runtime Kafka consumer exists for observability/tooling, not primary execution.
 
 ---
 
@@ -33,11 +32,11 @@ When you press **Save** in New Trade / Amend Trade:
 2. `helix-rest` validates portfolio/instrument/book and persists trade with status `accepted`.
 3. `helix-rest` publishes Kafka `trade.created`.
 4. `helix-rest` publishes RabbitMQ tasks:
-   - `portfolio.recompute`
+   - `portfolio.compute`
    - `trade.compute`
 5. `helix-rest` returns immediate accepted response.
-6. `helix-runtime` consumes `portfolio.recompute`, runs positions -> P&L -> risk in `helix-core`, persists snapshots, publishes:
-   - `positions.updated`
+6. `helix-runtime` consumes `portfolio.compute`, runs positions -> P&L -> risk in `helix-core`, persists snapshots, publishes:
+   - `portfolio.updated`
    - `pl.updated`
    - `risk.updated`
 7. `helix-runtime` consumes `trade.compute`, computes `notional = quantity * price`, updates trade row, publishes:
@@ -82,18 +81,16 @@ Base URL default: `http://localhost:5057`
 
 ### RabbitMQ queues
 
-- `portfolio.recompute`
+- `portfolio.compute`
 - `trade.compute`
 
 ### Kafka topics actively used
 
 - `trade.created`
 - `trade.updated`
-- `positions.updated`
+- `portfolio.updated`
 - `pl.updated`
 - `risk.updated`
-
-Additional topic names are defined in code (`trade.amended`, `trade.cancelled`, `marketdata.updated`, `alert.created`) but are not central to the current end-to-end flow.
 
 ---
 
@@ -124,7 +121,7 @@ Notes:
 
 ## 6) Analytics Model (Current)
 
-Implemented in `helix-core/src/helix_core/analytics.py`:
+Implemented in `helix-core/src/helix_core/portfolio/` and `helix-core/src/helix_core/valuation/`:
 
 - Position reconstruction: average-cost inventory model.
 - Realized P&L: realized on opposing trades against average cost.
@@ -133,7 +130,7 @@ Implemented in `helix-core/src/helix_core/analytics.py`:
 - Trade notional:
   - `quantity * price`
 - Risk snapshot:
-  - `delta`, `gamma`, `var_95` (stress loss removed).
+  - `delta`, `gross_exposure`, `net_exposure`, `var_95`.
 
 Market data is currently USD-oriented and pulled from `market_data` table.
 
@@ -267,7 +264,7 @@ Set in `scripts/linux/env.sh` / `scripts/win/env.ps1`:
 - `HELIX_KAFKA_BOOTSTRAP_SERVERS`
 - `HELIX_RABBITMQ_HOST`
 - `HELIX_RABBITMQ_PORT`
-- `HELIX_RABBITMQ_QUEUE_PORTFOLIO_RECOMPUTE`
+- `HELIX_RABBITMQ_QUEUE_PORTFOLIO_COMPUTE`
 - `HELIX_RABBITMQ_QUEUE_TRADE_COMPUTE`
 - `HELIX_RABBITMQ_MANAGEMENT_URL`
 - `HELIX_KAFKA_UI_URL`
@@ -303,7 +300,7 @@ Check:
 1. runtime process is running
 2. RabbitMQ queues have/consume tasks
 3. market data exists for traded instrument in `market_data`
-4. Kafka topics `positions.updated/pl.updated/risk.updated/trade.updated` receive events
+4. Kafka topics `portfolio.updated/pl.updated/risk.updated/trade.updated` receive events
 
 ---
 

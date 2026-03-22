@@ -17,10 +17,10 @@ def main() -> None:
         conn.execute("DELETE FROM market_data")
         conn.executemany(
             """
-            INSERT INTO market_data (instrument_id, price, updated_at)
-            VALUES (?, ?, ?)
+            INSERT INTO market_data (instrument_id, price, volatility, updated_at)
+            VALUES (?, ?, ?, ?)
             """,
-            [(row["instrument_id"], row["price"], "2026-03-21T08:59:00Z") for row in rows],
+            [(row["instrument_id"], row["price"], row["volatility"], "2026-03-21T08:59:00Z") for row in rows],
         )
         conn.commit()
 

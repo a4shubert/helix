@@ -13,8 +13,6 @@ from .models import (
     PersistedAnalytics,
     PortfolioUpdateEvent,
     TaskProcessingResult,
-    TradeCreatedEvent,
-    TradeProcessingResult,
 )
 from .ports import EventPublisher, StoreGateway
 
@@ -28,50 +26,6 @@ def _market_data_as_of(market_inputs: dict, fallback: datetime) -> datetime:
         ),
         default=fallback,
     )
-
-
-class TradeCreatedProcessor:
-    """Compatibility processor for direct local trade processing."""
-
-    def __init__(self, store: StoreGateway, publisher: EventPublisher) -> None:
-        self._store = store
-        self._publisher = publisher
-
-    def process(self, event: TradeCreatedEvent) -> TradeProcessingResult:
-        triggering_trade = self._store.get_trade(event.trade_id)
-        if triggering_trade.portfolio_id != event.portfolio_id:
-            raise ValueError(
-                f"Trade '{event.trade_id}' belongs to portfolio "
-                f"'{triggering_trade.portfolio_id}', not '{event.portfolio_id}'."
-            )
-
-        trades = self._store.get_portfolio_trades(event.portfolio_id, statuses=("accepted", "processed"))
-        market_inputs = self._store.get_market_inputs_for_portfolio(event.portfolio_id)
-        market_data_as_of_ts = _market_data_as_of(market_inputs, event.occurred_at)
-        analytics = compute_portfolio_analytics(
-            event.portfolio_id,
-            trades,
-            market_inputs,
-            valuation_ts=event.occurred_at,
-        )
-        persisted = self._store.save_portfolio_analytics(
-            analytics,
-            market_data_as_of_ts=market_data_as_of_ts,
-            source_event_id=event.trade_id,
-        )
-        self._store.update_trade_status(
-            event.trade_id,
-            "processed",
-            updated_at=event.occurred_at,
-            notional=triggering_trade.quantity * triggering_trade.price,
-        )
-        published_events = _publish_updates(self._publisher, persisted)
-        return TradeProcessingResult(
-            trade_id=event.trade_id,
-            portfolio_id=event.portfolio_id,
-            persisted=persisted,
-            published_events=published_events,
-        )
 
 
 class PortfolioRecomputeProcessor:
@@ -174,7 +128,7 @@ def _publish_updates(publisher: EventPublisher, persisted: PersistedAnalytics) -
         else persisted.pnl_snapshot_id or persisted.risk_snapshot_id
     )
     topic_to_snapshot = {
-        "positions.updated": positions_snapshot_id,
+        "portfolio.updated": positions_snapshot_id,
         "pl.updated": persisted.pnl_snapshot_id,
         "risk.updated": persisted.risk_snapshot_id,
     }

@@ -40,13 +40,13 @@ public static class PortfolioEndpoints
             }
 
             var requestedAt = DateTime.UtcNow;
-            await taskPublisher.PublishPortfolioRecomputeAsync(portfolioId, null, requestedAt, cancellationToken);
+            await taskPublisher.PublishPortfolioComputeAsync(portfolioId, null, requestedAt, cancellationToken);
 
             return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
             {
                 portfolioId,
                 status = "queued",
-                queue = BrokerTopology.PortfolioRecomputeQueue,
+                queue = BrokerTopology.PortfolioComputeQueue,
                 requestedAt
             });
         }).WithTags("portfolio");

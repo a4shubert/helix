@@ -7,6 +7,6 @@ public sealed class RabbitMqOptions
     public string Username { get; set; } = "guest";
     public string Password { get; set; } = "guest";
     public string VirtualHost { get; set; } = "/";
-    public string PortfolioRecomputeQueue { get; set; } = BrokerTopology.PortfolioRecomputeQueue;
+    public string PortfolioComputeQueue { get; set; } = BrokerTopology.PortfolioComputeQueue;
     public string TradeComputeQueue { get; set; } = BrokerTopology.TradeComputeQueue;
 }

@@ -11,7 +11,7 @@ from helix_runtime.infrastructure.sqlite_store import SqliteHelixStore
 
 from .adapters import KafkaUpdatePublisher
 from .config import KafkaConfig, RabbitMqConfig
-from .payloads import RabbitMqTask, parse_trade_created_payload
+from .payloads import RabbitMqTask
 
 
 def _parse_task_payload(body: bytes | str | dict[str, Any]) -> RabbitMqTask:
@@ -33,61 +33,6 @@ def _parse_task_payload(body: bytes | str | dict[str, Any]) -> RabbitMqTask:
         requested_at=datetime.fromisoformat(requested_at).astimezone(UTC),
         source_event_id=str(data["sourceEventId"]) if data.get("sourceEventId") else None,
     )
-
-
-class KafkaTradeCreatedConsumer:
-    """Consume trade.created events from Kafka for observability/local tooling only."""
-
-    def __init__(self, db_path: str, config: KafkaConfig) -> None:
-        self._db_path = db_path
-        self._config = config
-
-    def run(self, *, max_messages: int | None = None) -> int:
-        try:
-            from kafka import KafkaConsumer
-        except ImportError as exc:
-            raise RuntimeError(
-                "Kafka consumer support requires 'kafka-python'. "
-                "Install helix-runtime with broker extras."
-            ) from exc
-
-        consumer = KafkaConsumer(
-            self._config.trade_created_topic,
-            bootstrap_servers=self._config.bootstrap_servers.split(","),
-            group_id=self._config.consumer_group_id,
-            auto_offset_reset="earliest",
-            enable_auto_commit=True,
-        )
-
-        print(
-            f"[helix-runtime] Kafka consumer listening on topic "
-            f"'{self._config.trade_created_topic}' via {self._config.bootstrap_servers}"
-        )
-
-        processed = 0
-        try:
-            for message in consumer:
-                try:
-                    event = parse_trade_created_payload(message.value)
-                except Exception as exc:
-                    print(
-                        "[helix-runtime] skipped invalid kafka message "
-                        f"topic={message.topic} partition={message.partition} "
-                        f"offset={message.offset}: {exc}"
-                    )
-                    continue
-                processed += 1
-                print(
-                    "[helix-runtime] observed trade.created "
-                    f"trade_id={event.trade_id} portfolio_id={event.portfolio_id} "
-                    f"timestamp={event.occurred_at.isoformat()}"
-                )
-                if max_messages is not None and processed >= max_messages:
-                    break
-        finally:
-            consumer.close()
-
-        return processed
 
 
 class RabbitMqTaskWorker:
@@ -112,7 +57,7 @@ class RabbitMqTaskWorker:
         recompute_processor = PortfolioRecomputeProcessor(store, publisher)
         trade_compute_processor = TradeComputeProcessor(store, publisher)
         target_queues = queue_names or (
-            self._config.portfolio_recompute_queue,
+            self._config.portfolio_compute_queue,
             self._config.trade_compute_queue,
         )
 
@@ -141,7 +86,7 @@ class RabbitMqTaskWorker:
             nonlocal processed
             task = _parse_task_payload(body)
             try:
-                if method.routing_key == self._config.portfolio_recompute_queue:
+                if method.routing_key == self._config.portfolio_compute_queue:
                     result = recompute_processor.process(task)
                     print(
                         "[helix-runtime] processed rabbitmq task "

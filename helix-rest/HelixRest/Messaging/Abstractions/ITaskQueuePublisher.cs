@@ -2,7 +2,7 @@ namespace HelixRest.Messaging.Abstractions;
 
 public interface ITaskQueuePublisher
 {
-    Task PublishPortfolioRecomputeAsync(
+    Task PublishPortfolioComputeAsync(
         string portfolioId,
         string? sourceEventId,
         DateTime requestedAt,

@@ -2,6 +2,17 @@
 
 Core analytics library for the Helix platform.
 
+## Organization
+
+- `helix_core.trades`
+  - trade-level calculations such as signed quantity and trade notional
+- `helix_core.portfolio`
+  - position rebuilding plus portfolio P&L and risk aggregation
+- `helix_core.valuation`
+  - pluggable P&L / inventory valuation models such as `average_cost`, `fifo`, and `lifo`
+- `helix_core.risk`
+  - portfolio risk models such as `standard`
+
 ## Minimal example
 
 ```python
@@ -32,7 +43,7 @@ market_inputs = {
     "AAPL": MarketInput(
         instrument_id="AAPL",
         market_price=212.5,
-        risk_weight=0.25,
+        volatility=0.25,
         market_data_timestamp=datetime(2026, 3, 21, 9, 31, tzinfo=UTC),
     )
 }
@@ -40,6 +51,28 @@ market_inputs = {
 analytics = compute_portfolio_analytics("PF-001", trades, market_inputs)
 print(analytics.pnl.total_pnl)
 print(analytics.risk.var_95)
+```
+
+Select a different valuation model:
+
+```python
+analytics = compute_portfolio_analytics(
+    "PF-001",
+    trades,
+    market_inputs,
+    pnl_model="fifo",
+)
+```
+
+Select a risk model:
+
+```python
+analytics = compute_portfolio_analytics(
+    "PF-001",
+    trades,
+    market_inputs,
+    risk_model="standard",
+)
 ```
 
 A Jupyter example is available at `notebooks/helix_core_demo.ipynb`.

@@ -144,7 +144,8 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
                 SnapshotId = "RISK-PF-TEST-20260321T100000Z",
                 PortfolioId = "PF-TEST",
                 Delta = 0,
-                Gamma = 0,
+                GrossExposure = 0,
+                NetExposure = 0,
                 Var95 = 0,
                 ValuationTs = newerAsOf,
                 MarketDataAsOfTs = newerAsOf,
@@ -176,11 +177,14 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
     {
         public Task PublishTradeCreatedAsync(string tradeId, string portfolioId, DateTime occurredAt, System.Threading.CancellationToken cancellationToken) =>
             Task.CompletedTask;
+
+        public Task PublishTradeDeletedAsync(string tradeId, string portfolioId, DateTime occurredAt, System.Threading.CancellationToken cancellationToken) =>
+            Task.CompletedTask;
     }
 
     private sealed class NoOpPortfolioRecomputeTaskPublisher : ITaskQueuePublisher
     {
-        public Task PublishPortfolioRecomputeAsync(
+        public Task PublishPortfolioComputeAsync(
             string portfolioId,
             string? sourceEventId,
             DateTime requestedAt,

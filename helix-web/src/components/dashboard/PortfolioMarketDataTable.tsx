@@ -30,6 +30,14 @@ const columnDefs: ColDef<MarketDataRow>[] = [
       typeof params.value === "number" ? formatDecimal(params.value) : "",
   },
   {
+    field: "volatility",
+    headerName: "Volatility",
+    minWidth: 140,
+    type: "numericColumn",
+    valueFormatter: (params) =>
+      typeof params.value === "number" ? formatDecimal(params.value) : "",
+  },
+  {
     field: "updatedAt",
     headerName: "Updated At",
     minWidth: 220,

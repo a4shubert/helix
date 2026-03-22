@@ -22,8 +22,8 @@ public static class MessagingServiceCollectionExtensions
             options.Username = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_USERNAME") ?? "guest";
             options.Password = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_PASSWORD") ?? "guest";
             options.VirtualHost = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_VHOST") ?? "/";
-            options.PortfolioRecomputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_RECOMPUTE")
-                ?? BrokerTopology.PortfolioRecomputeQueue;
+            options.PortfolioComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_PORTFOLIO_COMPUTE")
+                ?? BrokerTopology.PortfolioComputeQueue;
             options.TradeComputeQueue = Environment.GetEnvironmentVariable("HELIX_RABBITMQ_QUEUE_TRADE_COMPUTE")
                 ?? BrokerTopology.TradeComputeQueue;
         });
@@ -31,7 +31,7 @@ public static class MessagingServiceCollectionExtensions
         services.AddSingleton<PortfolioUpdateBroadcaster>();
         services.AddSingleton<ITradeEventPublisher, KafkaTradeEventPublisher>();
         services.AddSingleton<ITaskQueuePublisher, RabbitMqTaskQueuePublisher>();
-        services.AddHostedService<KafkaPortfolioUpdatesConsumer>();
+        services.AddHostedService<KafkaPortfolioUpdatedConsumer>();
 
         return services;
     }

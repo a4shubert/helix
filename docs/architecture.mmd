@@ -11,11 +11,11 @@ flowchart LR
     rest <--> |query + persist| store
 
     rest --> |trade.created| kafka
-    rest --> |portfolio.recompute, trade.compute| rabbit
+    rest --> |portfolio.compute, trade.compute| rabbit
 
     rabbit --> |task consume| runtime
     runtime --> |analytics calls| core
     runtime --> |persist positions/pnl/risk + trade status| store
-    runtime --> |trade.updated, positions.updated, pl.updated, risk.updated| kafka
+    runtime --> |trade.updated, portfolio.updated, pl.updated, risk.updated| kafka
 
     kafka --> |update consume| rest

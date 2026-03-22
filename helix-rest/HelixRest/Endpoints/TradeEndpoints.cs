@@ -176,7 +176,7 @@ public static class TradeEndpoints
             db.Trades.Add(entity);
             await db.SaveChangesAsync(cancellationToken);
             await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioRecomputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+            await taskPublisher.PublishPortfolioComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
             return Results.Ok(new
@@ -225,7 +225,7 @@ public static class TradeEndpoints
 
             await db.SaveChangesAsync(cancellationToken);
             await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioRecomputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+            await taskPublisher.PublishPortfolioComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
             return Results.Ok(new
@@ -241,6 +241,7 @@ public static class TradeEndpoints
         app.MapDelete("/api/trades/{tradeId}", async (
             string tradeId,
             HelixContext db,
+            ITradeEventPublisher publisher,
             ITaskQueuePublisher taskPublisher,
             CancellationToken cancellationToken) =>
         {
@@ -255,14 +256,15 @@ public static class TradeEndpoints
             await db.SaveChangesAsync(cancellationToken);
 
             var requestedAt = DateTime.UtcNow;
-            await taskPublisher.PublishPortfolioRecomputeAsync(portfolioId, null, requestedAt, cancellationToken);
+            await publisher.PublishTradeDeletedAsync(tradeId, portfolioId, requestedAt, cancellationToken);
+            await taskPublisher.PublishPortfolioComputeAsync(portfolioId, null, requestedAt, cancellationToken);
 
             return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
             {
                 tradeId,
                 portfolioId,
                 status = "deleted-queued",
-                queue = BrokerTopology.PortfolioRecomputeQueue,
+                queue = BrokerTopology.PortfolioComputeQueue,
                 requestedAt
             });
         }).WithTags("trades");

@@ -34,6 +34,31 @@ public sealed class KafkaTradeEventPublisher : ITradeEventPublisher, IDisposable
         string portfolioId,
         DateTime occurredAt,
         CancellationToken cancellationToken)
+        => await PublishTradeEventAsync(
+            tradeId,
+            portfolioId,
+            occurredAt,
+            BrokerTopology.TradeCreatedTopic,
+            cancellationToken);
+
+    public async Task PublishTradeDeletedAsync(
+        string tradeId,
+        string portfolioId,
+        DateTime occurredAt,
+        CancellationToken cancellationToken)
+        => await PublishTradeEventAsync(
+            tradeId,
+            portfolioId,
+            occurredAt,
+            BrokerTopology.TradeDeletedTopic,
+            cancellationToken);
+
+    private async Task PublishTradeEventAsync(
+        string tradeId,
+        string portfolioId,
+        DateTime occurredAt,
+        string eventType,
+        CancellationToken cancellationToken)
     {
         if (_producer is null)
         {
@@ -46,14 +71,14 @@ public sealed class KafkaTradeEventPublisher : ITradeEventPublisher, IDisposable
         var payload = JsonSerializer.Serialize(new
         {
             eventId = $"EVT-{Guid.NewGuid():N}".ToUpperInvariant()[..16],
-            eventType = BrokerTopology.TradeCreatedTopic,
+            eventType,
             tradeId,
             portfolioId,
             timestamp = occurredAt.ToUniversalTime().ToString("O").Replace("+00:00", "Z")
         });
 
         await _producer.ProduceAsync(
-            BrokerTopology.TradeCreatedTopic,
+            eventType,
             new Message<Null, string> { Value = payload },
             cancellationToken);
     }

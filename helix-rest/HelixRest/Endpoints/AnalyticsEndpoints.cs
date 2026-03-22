@@ -27,6 +27,7 @@ public static class AnalyticsEndpoints
                     assetClass = x.AssetClass,
                     currency = x.Currency,
                     price = x.Price,
+                    volatility = x.Volatility,
                     updatedAt = x.UpdatedAt ?? string.Empty
                 })
             });
@@ -105,7 +106,8 @@ public static class AnalyticsEndpoints
                 snapshotId = snapshot?.SnapshotId ?? string.Empty,
                 portfolioId = snapshot?.PortfolioId ?? portfolioId,
                 delta = SnapshotQueries.RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("delta") ?? 0.0),
-                gamma = SnapshotQueries.RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("gamma") ?? 0.0),
+                grossExposure = SnapshotQueries.RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("gross_exposure") ?? 0.0),
+                netExposure = SnapshotQueries.RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("net_exposure") ?? 0.0),
                 var95 = SnapshotQueries.RoundToTwoDecimals(snapshot?.MetricValues.GetValueOrDefault("var_95") ?? 0.0),
                 valuationTs = snapshot?.ValuationTs ?? string.Empty,
                 marketDataAsOfTs = snapshot?.MarketDataAsOfTs ?? string.Empty,

@@ -2,15 +2,14 @@
 
 from __future__ import annotations
 
-import json
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from uuid import uuid4
 
-from helix_runtime.application.models import PortfolioUpdateEvent, TradeCreatedEvent
+from helix_runtime.application.models import PortfolioUpdateEvent
 
 from .config import KafkaConfig
-from .topology import TRADE_CREATED_TOPIC, TRADE_UPDATED_TOPIC
+from .topology import TRADE_UPDATED_TOPIC
 
 
 def _isoformat_utc(value: datetime) -> str:
@@ -37,40 +36,6 @@ class RabbitMqTask:
         if self.source_event_id:
             payload["sourceEventId"] = self.source_event_id
         return payload
-
-
-def parse_trade_created_payload(payload: str | bytes | dict[str, object]) -> TradeCreatedEvent:
-    if isinstance(payload, bytes):
-        data = json.loads(payload.decode("utf-8"))
-    elif isinstance(payload, str):
-        data = json.loads(payload)
-    else:
-        data = payload
-
-    event_type = str(data["eventType"])
-    if event_type != TRADE_CREATED_TOPIC:
-        raise ValueError(f"Unsupported event type '{event_type}'.")
-
-    timestamp = str(data["timestamp"])
-    if timestamp.endswith("Z"):
-        timestamp = timestamp[:-1] + "+00:00"
-    occurred_at = datetime.fromisoformat(timestamp).astimezone(UTC)
-
-    return TradeCreatedEvent(
-        trade_id=str(data["tradeId"]),
-        portfolio_id=str(data["portfolioId"]),
-        occurred_at=occurred_at,
-    )
-
-
-def build_trade_created_payload(event: TradeCreatedEvent) -> dict[str, object]:
-    return {
-        "eventId": f"EVT-{uuid4().hex[:12].upper()}",
-        "eventType": TRADE_CREATED_TOPIC,
-        "tradeId": event.trade_id,
-        "portfolioId": event.portfolio_id,
-        "timestamp": _isoformat_utc(event.occurred_at),
-    }
 
 
 def build_trade_updated_payload(
@@ -105,7 +70,7 @@ def build_portfolio_update_payload(event: PortfolioUpdateEvent) -> dict[str, obj
 
 def kafka_topic_for_update(event: PortfolioUpdateEvent, config: KafkaConfig) -> str:
     mapping = {
-        "positions.updated": config.positions_updated_topic,
+        "portfolio.updated": config.portfolio_updated_topic,
         "pl.updated": config.pl_updated_topic,
         "risk.updated": config.risk_updated_topic,
     }

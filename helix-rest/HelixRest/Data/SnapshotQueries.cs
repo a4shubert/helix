@@ -243,7 +243,7 @@ public static class SnapshotQueries
         await using var command = connection.CreateCommand();
         command.CommandText = """
             SELECT i.instrument_id, i.instrument_name, i.asset_class, i.currency,
-                   m.price, m.updated_at
+                   m.price, m.volatility, m.updated_at
             FROM instrument i
             LEFT JOIN market_data m ON m.instrument_id = i.instrument_id
             WHERE i.active = 1
@@ -259,6 +259,7 @@ public static class SnapshotQueries
                 AssetClass: reader["asset_class"]?.ToString() ?? string.Empty,
                 Currency: reader["currency"]?.ToString() ?? string.Empty,
                 Price: reader["price"] is DBNull ? null : Convert.ToDouble(reader["price"]),
+                Volatility: reader["volatility"] is DBNull ? null : Convert.ToDouble(reader["volatility"]),
                 UpdatedAt: reader["updated_at"]?.ToString()
             ));
         }
@@ -354,5 +355,6 @@ public sealed record MarketDataRow(
     string AssetClass,
     string Currency,
     double? Price,
+    double? Volatility,
     string? UpdatedAt
 );
