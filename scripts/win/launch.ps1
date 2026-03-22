@@ -92,10 +92,18 @@ Start-Sleep -Seconds 5
 
 & (Join-Path $ScriptDir "store_init_clean_state.ps1")
 
+Write-Host "[launch] Building helix-rest production publish..."
+& (Join-Path $ScriptDir "rest_build.ps1")
+
+Write-Host "[launch] Building helix-web production bundle..."
+& (Join-Path $ScriptDir "web_build.ps1")
+
+$Env:ASPNETCORE_ENVIRONMENT = "Production"
+
 Write-Host "[launch] Starting helix-rest..."
 $rest = Start-Process `
     -FilePath "powershell" `
-    -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $ScriptDir "rest_start_dev.ps1")) `
+    -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $ScriptDir "rest_start_prod.ps1")) `
     -PassThru `
     -RedirectStandardOutput (Join-Path $LogDir "rest.log") `
     -RedirectStandardError (Join-Path $LogDir "rest.log")
@@ -119,7 +127,7 @@ Assert-ProcessRunning -Name "runtime" -Pid $runtime.Id -LogPath (Join-Path $LogD
 Write-Host "[launch] Starting helix-web..."
 $web = Start-Process `
     -FilePath "powershell" `
-    -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $ScriptDir "web_start_dev.ps1")) `
+    -ArgumentList @("-ExecutionPolicy", "Bypass", "-File", (Join-Path $ScriptDir "web_start_prod.ps1")) `
     -PassThru `
     -RedirectStandardOutput (Join-Path $LogDir "web.log") `
     -RedirectStandardError (Join-Path $LogDir "web.log")

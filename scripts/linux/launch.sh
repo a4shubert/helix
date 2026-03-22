@@ -123,8 +123,16 @@ sleep 5
 
 "${SCRIPT_DIR}/store_init_clean_state.sh"
 
+echo "[launch] Building helix-rest production publish..."
+"${SCRIPT_DIR}/rest_build.sh"
+
+echo "[launch] Building helix-web production bundle..."
+"${SCRIPT_DIR}/web_build.sh"
+
+export ASPNETCORE_ENVIRONMENT=Production
+
 echo "[launch] Starting helix-rest..."
-nohup "${SCRIPT_DIR}/rest_start_dev.sh" >"${LOG_DIR}/rest.log" 2>&1 &
+nohup "${SCRIPT_DIR}/rest_start_prod.sh" >"${LOG_DIR}/rest.log" 2>&1 &
 echo $! > "${RUN_DIR}/rest.pid"
 
 sleep 4
@@ -138,7 +146,7 @@ sleep 3
 validate_pid_file_running "runtime"
 
 echo "[launch] Starting helix-web..."
-nohup "${SCRIPT_DIR}/web_start_dev.sh" >"${LOG_DIR}/web.log" 2>&1 &
+nohup "${SCRIPT_DIR}/web_start_prod.sh" >"${LOG_DIR}/web.log" 2>&1 &
 echo $! > "${RUN_DIR}/web.pid"
 
 sleep 3
