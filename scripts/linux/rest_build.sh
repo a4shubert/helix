@@ -14,6 +14,13 @@ DOTNET_BIN="${HOME}/.dotnet/dotnet"
 if [[ ! -x "${DOTNET_BIN}" ]]; then
   DOTNET_BIN="$(command -v dotnet)"
 fi
+DOTNET_VERSION="$("${DOTNET_BIN}" --version)"
+DOTNET_MAJOR="${DOTNET_VERSION%%.*}"
+if [[ "${DOTNET_MAJOR}" -lt 10 ]]; then
+  echo "[rest_build] .NET SDK 10.x required, resolved ${DOTNET_VERSION} via ${DOTNET_BIN}."
+  echo "[rest_build] Ensure ~/.dotnet is first in PATH or install .NET 10 SDK."
+  exit 1
+fi
 
 cd "${REPO_ROOT}"
 

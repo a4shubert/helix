@@ -6,6 +6,7 @@ import sqlite3
 from collections import defaultdict
 from contextlib import contextmanager
 from datetime import UTC, date, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from pathlib import Path
 
 from helix_core import MarketInput, PortfolioAnalytics, Trade
@@ -45,6 +46,10 @@ def _isoformat_utc(value: datetime) -> str:
 
 def _snapshot_suffix(value: datetime) -> str:
     return value.astimezone(UTC).strftime("%Y%m%dT%H%M%SZ")
+
+
+def _round2(value: float) -> float:
+    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 class SqliteHelixStore:
@@ -265,9 +270,9 @@ class SqliteHelixStore:
                 (
                     snapshot_id,
                     pnl.portfolio_id,
-                    pnl.total_pnl,
-                    pnl.realized_pnl,
-                    pnl.unrealized_pnl,
+                    _round2(pnl.total_pnl),
+                    _round2(pnl.realized_pnl),
+                    _round2(pnl.unrealized_pnl),
                     _isoformat_utc(pnl.valuation_ts),
                     _isoformat_utc(market_data_as_of_ts),
                     _isoformat_utc(pnl.valuation_ts),
@@ -296,9 +301,9 @@ class SqliteHelixStore:
                 (
                     snapshot_id,
                     risk.portfolio_id,
-                    risk.delta,
-                    risk.gamma,
-                    risk.var_95,
+                    _round2(risk.delta),
+                    _round2(risk.gamma),
+                    _round2(risk.var_95),
                     _isoformat_utc(risk.valuation_ts),
                     _isoformat_utc(market_data_as_of_ts),
                     _isoformat_utc(risk.valuation_ts),

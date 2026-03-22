@@ -14,23 +14,28 @@ This README documents the **current implementation**, not an aspirational target
 
 ## 1) Current Architecture
 
-```text
-helix-web
-  -> REST (HTTP)
-  <- REST (SSE updates)
+```mermaid
+flowchart LR
+    web["helix-web"]
+    rest["helix-rest"]
+    runtime["helix-runtime"]
+    core["helix-core"]
+    store["helix-store (SQLite)"]
+    kafka["Kafka"]
+    rabbit["RabbitMQ"]
 
-helix-rest
-  -> SQLite (read/write)
-  -> Kafka (trade.created audit/event)
-  -> RabbitMQ (portfolio.recompute + trade.compute tasks)
-  <- Kafka (trade.updated, positions.updated, pl.updated, risk.updated)
-  -> SSE /api/events
+    web <--> |HTTP + SSE| rest
+    rest <--> |query + persist| store
 
-helix-runtime
-  <- RabbitMQ (execution trigger)
-  -> helix-core (positions/pnl/risk + trade notional compute)
-  -> SQLite (persist results)
-  -> Kafka (trade.updated, positions.updated, pl.updated, risk.updated)
+    rest --> |trade.created| kafka
+    rest --> |portfolio.recompute, trade.compute| rabbit
+
+    rabbit --> |task consume| runtime
+    runtime --> |analytics calls| core
+    runtime --> |persist positions/pnl/risk + trade status| store
+    runtime --> |trade.updated, positions.updated, pl.updated, risk.updated| kafka
+
+    kafka --> |update consume| rest
 ```
 
 ### Messaging intent

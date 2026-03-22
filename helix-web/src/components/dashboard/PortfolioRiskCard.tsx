@@ -1,6 +1,6 @@
 import type { MetricValue } from "@/lib/api/types";
 import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
-import { formatSignedInteger } from "@/lib/format/number";
+import { formatSignedDecimal } from "@/lib/format/number";
 
 export function PortfolioRiskCard({
   metrics,
@@ -21,13 +21,13 @@ export function PortfolioRiskCard({
           >
             <span className="text-xl text-white">{metric.label}</span>
             <span
-              className={`text-xl font-light tabular-nums md:text-2xl ${
+            className={`text-xl font-light tabular-nums md:text-2xl ${
                 metric.value >= 0
                   ? "font-medium text-[#2DD3B6] drop-shadow-[0_0_10px_rgba(45,211,182,0.28)]"
                   : "font-medium text-[#f87171] drop-shadow-[0_0_10px_rgba(248,113,113,0.30)]"
               }`}
             >
-              {formatSignedInteger(metric.value)}
+              {formatSignedDecimal(metric.value)}
             </span>
           </div>
         ))}

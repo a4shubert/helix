@@ -6,6 +6,7 @@ import type {
   FilterChangedEvent,
   GridApi,
   GridReadyEvent,
+  PaginationChangedEvent,
   SelectionChangedEvent,
 } from "ag-grid-community";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -13,6 +14,7 @@ import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
 import type { PortfolioPosition, PortfolioResponse } from "@/lib/api/types";
+import { formatUkDateTime } from "@/lib/format/date";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
 
 function normalizePosition(
@@ -73,7 +75,15 @@ const columnDefs: ColDef[] = [
     type: "numericColumn",
     valueFormatter: formatDecimalCell,
   },
-  { field: "lastUpdateTs", headerName: "Last Update Timestamp", minWidth: 210 },
+  {
+    field: "lastUpdateTs",
+    headerName: "Last Update Timestamp",
+    minWidth: 210,
+    filter: "agTextColumnFilter",
+    cellDataType: "text",
+    filterValueGetter: (params) =>
+      formatUkDateTime((params.data as PortfolioPosition | undefined)?.lastUpdateTs),
+  },
   {
     field: "marketPrice",
     headerName: "Market Price",
@@ -81,7 +91,15 @@ const columnDefs: ColDef[] = [
     type: "numericColumn",
     valueFormatter: formatDecimalCell,
   },
-  { field: "marketDataTs", headerName: "Market Data Timestamp", minWidth: 210 },
+  {
+    field: "marketDataTs",
+    headerName: "Market Data Timestamp",
+    minWidth: 210,
+    filter: "agTextColumnFilter",
+    cellDataType: "text",
+    filterValueGetter: (params) =>
+      formatUkDateTime((params.data as PortfolioPosition | undefined)?.marketDataTs),
+  },
   { field: "book", headerName: "Book", minWidth: 170 },
 ];
 
@@ -96,7 +114,7 @@ const defaultColDef: ColDef = {
           params.column.getColId() === "lastUpdateTs" ||
           params.column.getColId() === "marketDataTs"
         ) {
-          return new Date(params.value).toLocaleString("en-GB", { hour12: false });
+          return formatUkDateTime(params.value);
         }
       }
 
@@ -111,7 +129,7 @@ const defaultColDef: ColDef = {
   },
 };
 
-const PAGE_SIZE = 10;
+const PAGE_SIZE = 5;
 
 const helpItems = [
   "Single click focuses a cell; copy with Cmd+C (macOS) or Ctrl+C (Windows/Linux).",
@@ -120,7 +138,7 @@ const helpItems = [
   "Use the X button to clear any selected rows (de-select all).",
   "Use the filter-reset button to clear all column filters.",
   "Use Fit Columns to size by header and Fit Data to auto-size to visible content.",
-  "Pagination buttons move through the mock positions dataset page by page; filters affect only the current page in this mock setup.",
+  "Pagination buttons move through the filtered positions dataset page by page.",
 ];
 
 export function PortfolioPositionsTable({
@@ -132,8 +150,12 @@ export function PortfolioPositionsTable({
   collapsed: boolean;
   onToggle: () => void;
 }) {
-  const gridApiRef = useRef<GridApi | null>(null);
+  const gridApiRef = useRef<GridApi<PortfolioPosition> | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
+  const [lastPage, setLastPage] = useState(1);
+  const [visibleStart, setVisibleStart] = useState(0);
+  const [visibleEnd, setVisibleEnd] = useState(0);
+  const [visibleTotalRows, setVisibleTotalRows] = useState(0);
   const [selectedCount, setSelectedCount] = useState(0);
   const [hasFilters, setHasFilters] = useState(false);
   const normalizedPositions = useMemo(
@@ -144,13 +166,22 @@ export function PortfolioPositionsTable({
     [portfolio.portfolioId, portfolio.positions],
   );
   const totalRows = normalizedPositions.length;
-  const lastPage = Math.max(1, Math.ceil(totalRows / PAGE_SIZE));
-  const currentRows = useMemo(() => {
-    const start = (currentPage - 1) * PAGE_SIZE;
-    return normalizedPositions.slice(start, start + PAGE_SIZE);
-  }, [currentPage, normalizedPositions]);
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
+
+  function refreshPaginationState(api: GridApi<PortfolioPosition>) {
+    const nextCurrent = (api.paginationGetCurrentPage?.() ?? 0) + 1;
+    const nextLast = Math.max(1, api.paginationGetTotalPages?.() ?? 1);
+    const displayed = api.getDisplayedRowCount?.() ?? 0;
+    const firstDisplayed = api.getFirstDisplayedRowIndex?.() ?? -1;
+    const lastDisplayed = api.getLastDisplayedRowIndex?.() ?? -1;
+
+    setCurrentPage(nextCurrent);
+    setLastPage(nextLast);
+    setVisibleTotalRows(displayed);
+    setVisibleStart(firstDisplayed >= 0 ? firstDisplayed + 1 : 0);
+    setVisibleEnd(lastDisplayed >= 0 ? lastDisplayed + 1 : 0);
+  }
 
   function handleFitColumnsToHeader() {
     const api = gridApiRef.current;
@@ -181,9 +212,12 @@ export function PortfolioPositionsTable({
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       handleFitColumnsToData();
+      if (gridApiRef.current) {
+        refreshPaginationState(gridApiRef.current);
+      }
     });
     return () => cancelAnimationFrame(frame);
-  }, [currentRows]);
+  }, [normalizedPositions]);
 
   function handleDownloadCsv() {
     const api = gridApiRef.current;
@@ -204,7 +238,44 @@ export function PortfolioPositionsTable({
     api.setFilterModel(null);
     api.onFilterChanged?.();
     setHasFilters(false);
-    setCurrentPage(1);
+    api.paginationGoToFirstPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToFirstPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToFirstPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToPreviousPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToPreviousPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToNextPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToNextPage?.();
+    refreshPaginationState(api);
+  }
+
+  function handleGoToLastPage() {
+    const api = gridApiRef.current;
+    if (!api) {
+      return;
+    }
+    api.paginationGoToLastPage?.();
+    refreshPaginationState(api);
   }
 
   function handleClearSelection() {
@@ -223,7 +294,15 @@ export function PortfolioPositionsTable({
       if (!hasFilters) {
         return;
       }
-      handleResetFilters();
+      const api = gridApiRef.current;
+      if (!api) {
+        return;
+      }
+      api.setFilterModel(null);
+      api.onFilterChanged?.();
+      setHasFilters(false);
+      api.paginationGoToFirstPage?.();
+      refreshPaginationState(api);
     }
 
     window.addEventListener("keydown", onKeyDown);
@@ -235,7 +314,7 @@ export function PortfolioPositionsTable({
       title="Position"
       collapsed={collapsed}
       onToggle={onToggle}
-      expandedClassName="h-[520px] shrink-0"
+      expandedClassName="h-[390px] shrink-0"
     >
       <div className="mb-4 mt-3 flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-[color:var(--color-muted)]">
@@ -268,24 +347,17 @@ export function PortfolioPositionsTable({
 
         <div className="flex flex-wrap items-center justify-end gap-2">
           <div className="mr-1 text-sm text-[color:var(--color-muted)]">
-            {(() => {
-              const start = (currentPage - 1) * PAGE_SIZE + 1;
-              const end = (currentPage - 1) * PAGE_SIZE + currentRows.length;
-
-              return (
-                <>
-                  Page {currentPage} of {lastPage}; Rows: {currentRows.length ? `${start}-${end}` : "0"};
-                  Total Rows {totalRows}
-                </>
-              );
-            })()}
+            <>
+              Page {currentPage} of {lastPage}; Rows: {visibleStart && visibleEnd ? `${visibleStart}-${visibleEnd}` : "0"};
+              ; Total Rows {visibleTotalRows} (All {totalRows})
+            </>
           </div>
 
           <button
             type="button"
             aria-disabled={!hasPrev}
             disabled={!hasPrev}
-            onClick={() => setCurrentPage(1)}
+            onClick={handleGoToFirstPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -315,7 +387,7 @@ export function PortfolioPositionsTable({
             type="button"
             aria-disabled={!hasPrev}
             disabled={!hasPrev}
-            onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+            onClick={handleGoToPreviousPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -338,7 +410,7 @@ export function PortfolioPositionsTable({
             type="button"
             aria-disabled={!hasNext}
             disabled={!hasNext}
-            onClick={() => setCurrentPage((page) => Math.min(lastPage, page + 1))}
+            onClick={handleGoToNextPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -361,7 +433,7 @@ export function PortfolioPositionsTable({
             type="button"
             aria-disabled={!hasNext}
             disabled={!hasNext}
-            onClick={() => setCurrentPage(lastPage)}
+            onClick={handleGoToLastPage}
             className={[
               "inline-flex items-center justify-center rounded-md border px-2.5 py-2 text-sm",
               "border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-[color:var(--color-text)]",
@@ -446,32 +518,41 @@ export function PortfolioPositionsTable({
 
       <div className="min-h-0 flex-1 w-full">
         <HelixAgTable
-          rowData={currentRows}
+          rowData={normalizedPositions}
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           rowIdField="positionId"
-          onGridReady={(event: GridReadyEvent) => {
+          onGridReady={(event: GridReadyEvent<PortfolioPosition>) => {
             gridApiRef.current = event.api;
             requestAnimationFrame(() => {
               handleFitColumnsToData();
+              refreshPaginationState(event.api);
             });
           }}
-          onSelectionChanged={(event: SelectionChangedEvent) => {
+          onPaginationChanged={(event: PaginationChangedEvent<PortfolioPosition>) => {
+            refreshPaginationState(event.api);
+          }}
+          onSelectionChanged={(event: SelectionChangedEvent<PortfolioPosition>) => {
             setSelectedCount(event.api.getSelectedNodes().length);
           }}
-          onCellDoubleClicked={(event: CellDoubleClickedEvent) => {
+          onCellDoubleClicked={(event: CellDoubleClickedEvent<PortfolioPosition>) => {
             if (!event.node) {
               return;
             }
             event.node.setSelected(!event.node.isSelected());
             setSelectedCount(event.api.getSelectedNodes().length);
           }}
-          onFilterChanged={(event: FilterChangedEvent) => {
+          onFilterChanged={(event: FilterChangedEvent<PortfolioPosition>) => {
             const filterModel = event.api.getFilterModel();
             setHasFilters(Object.keys(filterModel ?? {}).length > 0);
-            setCurrentPage(1);
+            event.api.paginationGoToFirstPage?.();
+            refreshPaginationState(event.api);
           }}
           gridOptions={{
+            pagination: true,
+            paginationPageSize: PAGE_SIZE,
+            paginationPageSizeSelector: false,
+            suppressPaginationPanel: true,
             rowSelection: {
               mode: "multiRow",
               enableSelectionWithoutKeys: true,

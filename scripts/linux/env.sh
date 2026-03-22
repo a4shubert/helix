@@ -11,6 +11,18 @@ fi
 SCRIPT_DIR="$(cd "$(dirname "${_SRC}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
+if [[ -x "${HOME}/.dotnet/dotnet" ]]; then
+  export DOTNET_ROOT="${HOME}/.dotnet"
+  case ":${PATH}:" in
+    *":${HOME}/.dotnet:"*) ;;
+    *) export PATH="${HOME}/.dotnet:${PATH}" ;;
+  esac
+  case ":${PATH}:" in
+    *":${HOME}/.dotnet/tools:"*) ;;
+    *) export PATH="${HOME}/.dotnet/tools:${PATH}" ;;
+  esac
+fi
+
 export HELIX_DB_PATH="${HELIX_DB_PATH:-${REPO_ROOT}/helix-store/helix.db}"
 export HELIX_API_URL="${HELIX_API_URL:-http://localhost:5057}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://localhost:5057}"
@@ -51,3 +63,7 @@ echo "[env] HELIX_RABBITMQ_MANAGEMENT_URL=${HELIX_RABBITMQ_MANAGEMENT_URL}"
 echo "[env] HELIX_JAVA_HOME=${HELIX_JAVA_HOME}"
 echo "[env] HELIX_KAFKA_UI_URL=${HELIX_KAFKA_UI_URL}"
 echo "[env] HELIX_KAFKA_UI_JAR=${HELIX_KAFKA_UI_JAR}"
+if command -v dotnet >/dev/null 2>&1; then
+  echo "[env] DOTNET_BIN=$(command -v dotnet)"
+  echo "[env] DOTNET_SDK=$(dotnet --version)"
+fi

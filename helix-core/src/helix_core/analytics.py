@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import defaultdict
 from dataclasses import replace
 from datetime import UTC, datetime
+from decimal import ROUND_HALF_UP, Decimal
 from math import sqrt
 
 from .models import (
@@ -43,6 +44,10 @@ def _sign(value: float) -> float:
     if value < 0:
         return -1.0
     return 0.0
+
+
+def _round2(value: float) -> float:
+    return float(Decimal(str(value)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
 
 
 def summarize_position_trades(trades: list[Trade]) -> tuple[float, float, float]:
@@ -177,8 +182,9 @@ def compute_portfolio_pnl(
 ) -> PortfolioPnlSnapshot:
     """Aggregate position-level unrealized P&L into portfolio P&L."""
     valuation_time = valuation_ts or datetime.now(UTC)
-    unrealized_pnl = sum(position.unrealized_pnl for position in positions)
-    total_pnl = realized_pnl + unrealized_pnl
+    unrealized_pnl = _round2(sum(position.unrealized_pnl for position in positions))
+    realized_pnl = _round2(realized_pnl)
+    total_pnl = _round2(realized_pnl + unrealized_pnl)
     return PortfolioPnlSnapshot(
         portfolio_id=portfolio_id,
         total_pnl=total_pnl,
@@ -225,9 +231,9 @@ def compute_portfolio_risk(
 
     return PortfolioRiskSnapshot(
         portfolio_id=portfolio_id,
-        delta=delta,
-        gamma=gamma,
-        var_95=var_95,
+        delta=_round2(delta),
+        gamma=_round2(gamma),
+        var_95=_round2(var_95),
         valuation_ts=valuation_time,
     )
 
