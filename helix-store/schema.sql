@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS position (
 CREATE TABLE IF NOT EXISTS market_data (
   instrument_id TEXT PRIMARY KEY,
   price REAL NOT NULL,
+  volatility REAL NOT NULL,
   updated_at DATETIME NOT NULL
 );
 
@@ -86,7 +87,8 @@ CREATE TABLE IF NOT EXISTS risk (
   snapshot_id TEXT PRIMARY KEY,
   portfolio_id TEXT NOT NULL,
   delta REAL NOT NULL,
-  gamma REAL,
+  gross_exposure REAL NOT NULL,
+  net_exposure REAL NOT NULL,
   var_95 REAL,
   valuation_ts DATETIME NOT NULL,
   market_data_as_of_ts DATETIME NOT NULL,

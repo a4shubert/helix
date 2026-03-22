@@ -141,7 +141,7 @@ export function PortfolioDashboard() {
     try {
       await requestPortfolioRecompute(portfolioId);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to queue portfolio recompute.");
+      setError(err instanceof Error ? err.message : "Failed to queue portfolio compute.");
     } finally {
       setRecomputingPortfolio((current) => (current === portfolioId ? null : current));
     }
@@ -198,11 +198,11 @@ export function PortfolioDashboard() {
       }, 150);
     };
 
-    eventSource.addEventListener("positions.updated", scheduleRefresh);
+    eventSource.addEventListener("portfolio.updated", scheduleRefresh);
     eventSource.addEventListener("pl.updated", scheduleRefresh);
     eventSource.addEventListener("risk.updated", scheduleRefresh);
+    eventSource.addEventListener("trade.deleted", scheduleRefresh);
     eventSource.addEventListener("trade.updated", scheduleRefresh);
-    eventSource.addEventListener("marketdata.updated", scheduleRefresh);
     eventSource.onerror = () => {
       eventSource.close();
     };

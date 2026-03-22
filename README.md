@@ -1,6 +1,10 @@
 # Helix
 
-Helix is an event-driven portfolio dashboard prototype with:
+Helix is a front-office portfolio analytics platform that delivers real-time positions, P&L, and risk by combining a web interface, a REST orchestration layer, a core analytics engine, and an asynchronous runtime for event-driven processing. It supports full trading workflows, including trade capture, market data updates, and asynchronous portfolio recomputation, while keeping persistent state in SQLite and using Kafka plus RabbitMQ for event distribution and background work. The platform is structured so that web, orchestration, analytics, runtime, and storage concerns remain separate and inspectable.
+
+---
+
+## Package Map
 
 - `helix-web` (Next.js + AG Grid)
 - `helix-rest` (.NET 10 minimal API)
@@ -8,100 +12,134 @@ Helix is an event-driven portfolio dashboard prototype with:
 - `helix-core` (Python analytics library)
 - `helix-store` (SQLite schema + seed tooling)
 
-This README documents the **current implementation**, not an aspirational target.
+---
+
+## Installation
+
+Prerequisites:
+
+- Python `3.11+`
+- Node.js + `npm`
+- .NET SDK `10.0.201`
+- Java
+- Homebrew with `kafka` and `rabbitmq`
+
+Linux / macOS:
+
+```bash
+./scripts/linux/install.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/win/install.ps1
+```
+
+What the install scripts do:
+
+- restore `.NET` packages for `helix-rest`
+- install `helix-web` npm dependencies
+- create Python virtual environments for `helix-core` and `helix-runtime`
+- install `helix-core` and `helix-runtime` into the runtime environment
+- ensure Kafka, RabbitMQ, and OpenJDK are installed when Homebrew is available
 
 ---
 
-## 1) Current Architecture
+## Flow
 
-![Current Architecture](docs/architecture.svg)
+## ![Current Architecture](docs/architecture.svg)
 
-### Messaging intent
+Typical live flow:
 
-- **RabbitMQ is the execution trigger** for compute work.
-- **Kafka is audit/update stream** for state-change notifications.
-- Runtime service (`run-service`) consumes RabbitMQ only.
-- Runtime Kafka consumer exists for observability/tooling, not primary execution.
-
----
-
-## 2) Trade Save Workflow (Current)
-
-When you press **Save** in New Trade / Amend Trade:
-
-1. `helix-web` calls `POST /api/trades` or `PUT /api/trades/{tradeId}`.
-2. `helix-rest` validates portfolio/instrument/book and persists trade with status `accepted`.
-3. `helix-rest` publishes Kafka `trade.created`.
-4. `helix-rest` publishes RabbitMQ tasks:
-   - `portfolio.recompute`
-   - `trade.compute`
-5. `helix-rest` returns immediate accepted response.
-6. `helix-runtime` consumes `portfolio.recompute`, runs positions -> P&L -> risk in `helix-core`, persists snapshots, publishes:
-   - `positions.updated`
+1. A trade is created, amended, or deleted through `helix-web`.
+2. `helix-rest` validates and persists the trade in SQLite.
+3. `helix-rest` publishes:
+   - Kafka trade events such as `trade.updated` or `trade.deleted`
+   - RabbitMQ tasks such as `portfolio.compute` and `trade.compute`
+4. `helix-runtime` consumes the task, reloads trades and market data from SQLite, and runs analytics through `helix-core`.
+5. `helix-runtime` persists fresh `position`, `pnl`, and `risk` snapshots.
+6. `helix-runtime` publishes Kafka updates:
+   - `portfolio.updated`
    - `pl.updated`
    - `risk.updated`
-7. `helix-runtime` consumes `trade.compute`, computes `notional = quantity * price`, updates trade row, publishes:
    - `trade.updated`
-8. `helix-rest` Kafka update consumer receives updates and broadcasts SSE on `/api/events`.
-9. `helix-web` listens SSE and refetches portfolio/trades/pnl/risk/market-data.
+7. `helix-rest` consumes those Kafka updates and rebroadcasts them over server-sent events.
+8. `helix-web` listens to SSE and refreshes the visible portfolio state.
 
 ---
 
-## 3) Implemented REST API
+## Components
 
-Base URL default: `http://localhost:5057`
+### helix-web (next.js)
 
-### System
+`helix-web` is the operator-facing UI. It renders portfolios, trades, positions, market data, P&L, and risk using Next.js and AG Grid. It talks directly to `helix-rest`, opens an SSE stream for live refresh, and keeps dashboard-level state in the browser.
 
-- `GET /health`
-- `GET /api/events?portfolioId=...` (SSE)
-- `GET /swagger` and `GET /swagger/index.html`
+Primary responsibilities:
 
-### Portfolio
+- trade entry, amendment, and deletion
+- portfolio dashboard and market data views
+- live refresh from REST SSE events
+- client-side grid interaction and filtering
 
-- `GET /api/portfolios` (ordered by DB `sort_order`)
-- `GET /api/portfolio?portfolioId=...&asOf=...`
-- `POST /api/portfolios/{portfolioId}/recompute`
+### helix-rest (asp\.net | ef.core )
 
-### Trades
+`helix-rest` is the orchestration and integration layer. It exposes the HTTP API, persists trades and reference data with EF Core, reads snapshot data from SQLite, publishes Kafka and RabbitMQ messages, and rebroadcasts platform updates to the web tier over SSE.
 
-- `GET /api/trades?portfolioId=...&status=...&from=...&to=...`
-- `GET /api/trade-form-options`
-- `POST /api/trades`
-- `PUT /api/trades/{tradeId}`
+Primary responsibilities:
 
-### Analytics / Market
+- REST endpoints for portfolios, trades, market data, P&L, and risk
+- SQLite persistence and snapshot reads
+- Kafka trade/update publication and consumption
+- RabbitMQ task publication
+- SSE fan-out to the UI
 
-- `GET /api/pnl?portfolioId=...&asOf=...`
-- `GET /api/risk?portfolioId=...&asOf=...`
-- `GET /api/market-data`
+### helix-runtime (python)
 
----
+`helix-runtime` is the asynchronous worker service. It consumes RabbitMQ tasks, rebuilds portfolio analytics from current persisted state, writes fresh snapshots, and emits Kafka update events after successful persistence.
 
-## 4) Broker Names (Current)
+Primary responsibilities:
 
-### RabbitMQ queues
+- consume `portfolio.compute` and `trade.compute`
+- load trades and market inputs from SQLite
+- invoke `helix-core`
+- persist `position`, `pnl`, and `risk`
+- publish Kafka update events
 
-- `portfolio.recompute`
-- `trade.compute`
+### helix-core (python)
 
-### Kafka topics actively used
+`helix-core` is the analytics library. It contains the domain models and the actual calculation logic for trades, positions, valuation, portfolio analytics, and risk. Valuation and risk are both model-based extension points.
 
-- `trade.created`
-- `trade.updated`
-- `positions.updated`
-- `pl.updated`
-- `risk.updated`
+Current analytics structure:
 
-Additional topic names are defined in code (`trade.amended`, `trade.cancelled`, `marketdata.updated`, `alert.created`) but are not central to the current end-to-end flow.
+- `trades`
+- `positions`
+- `portfolio`
+- `valuation`
+- `risk`
+- `market`
 
----
+Current built-in models:
 
-## 5) Database Schema (Current)
+- P&L / inventory:
+  - `average_cost`
+  - `fifo`
+  - `lifo`
+- risk:
+  - `standard`
 
-SQLite DB path default: `helix-store/helix.db`
+Current standard risk output:
 
-Tables:
+- `delta`
+- `gross_exposure`
+- `net_exposure`
+- `var_95`
+
+### helix-store (sqlLite db)
+
+`helix-store` owns the persistent schema, seed data, and local reset tooling. It stores reference data, trades, position snapshots, P&L snapshots, risk snapshots, and audit rows in SQLite.
+
+Core tables:
 
 - `portfolio`
 - `instrument`
@@ -113,207 +151,39 @@ Tables:
 - `risk`
 - `audit`
 
-Notes:
+Reset and seed tooling:
 
-- Web uses API only (no local mock files).
-- Portfolio order is controlled in DB (`portfolio.sort_order`), not hardcoded in web.
-- Trade IDs/position IDs are server-generated in REST.
-- Positions are netted to one row per instrument (per portfolio/as-of snapshot).
+- [`helix-store/init_clean_state.py`](/Users/alexandershubert/git/helix/helix-store/init_clean_state.py)
+- [`scripts/linux/store_init_clean_state.sh`](/Users/alexandershubert/git/helix/scripts/linux/store_init_clean_state.sh)
 
 ---
 
-## 6) Analytics Model (Current)
+## Launch
 
-Implemented in `helix-core/src/helix_core/analytics.py`:
-
-- Position reconstruction: average-cost inventory model.
-- Realized P&L: realized on opposing trades against average cost.
-- Unrealized P&L per position:
-  - `signed_quantity * (market_price - average_cost)`
-- Trade notional:
-  - `quantity * price`
-- Risk snapshot:
-  - `delta`, `gamma`, `var_95` (stress loss removed).
-
-Market data is currently USD-oriented and pulled from `market_data` table.
-
----
-
-## 7) UI Behavior (Current)
-
-- Portfolio sidebar is fixed.
-- Recompute icon is enabled only for currently selected portfolio.
-- Cards are collapsible via `+ / -` button.
-- Default collapsed state:
-  - Summary open
-  - Trades/Position/Market Data collapsed
-- AG Grid pagination:
-  - Trades: 20 rows/page
-  - Positions: 10 rows/page
-  - Market Data: 20 rows/page
-- Trades table uses single-row selection for amend mode.
-- Fit Data autosize runs on table data refresh.
-- SSE updates trigger refetch and redraw.
-
----
-
-## 8) Local Setup
-
-### Prerequisites
-
-- .NET SDK **10.x** (required by `net10.0` projects)
-- Python 3.11+
-- Node.js + npm
-- Java (for Kafka UI)
-- Homebrew + `kafka` + `rabbitmq` (for provided broker scripts)
-
-### One-time setup
+Linux / macOS:
 
 ```bash
-# Optional: create venvs and Jupyter kernels (Helix Core / Helix Runtime)
-./scripts/linux/python_kernels_setup.sh
+./scripts/linux/launch.sh
 ```
 
-### Clean start (Linux/macOS scripts)
+Windows / PowerShell:
 
-From repo root:
-
-```bash
-# 1) Start brokers + Kafka UI
-./scripts/linux/brokers_start.sh
+```powershell
+./scripts/win/launch.ps1
 ```
 
-In a new terminal:
+What the launch scripts do:
 
-```bash
-# 2) Initialize clean DB state (schema + PF-EQ/PF-FI/PF-CM + instruments/books + market data)
-python3 helix-store/init_clean_state.py
-```
+- start Kafka and RabbitMQ
+- reset the SQLite store to clean seeded state
+- start `helix-rest`
+- start `helix-runtime`
+- start `helix-web`
+- write process logs under `.helix/logs`
 
-In separate terminals:
+Default URLs:
 
-```bash
-# 3) Runtime worker
-./scripts/linux/runtime_start.sh
-
-# 4) REST API
-./scripts/linux/rest_start_dev.sh
-
-# 5) Web UI
-./scripts/linux/web_start_dev.sh
-```
-
-### Default URLs
-
-- Web: `http://localhost:3000`
-- REST + Swagger: `http://localhost:5057/swagger`
+- REST API: `http://localhost:5057`
+- Web UI: `http://localhost:3000`
 - RabbitMQ UI: `http://localhost:15672`
 - Kafka UI: `http://localhost:8080`
-
----
-
-## 9) Useful Scripts
-
-### Linux
-
-- `scripts/linux/brokers_start.sh`
-- `scripts/linux/brokers_stop.sh`
-- `scripts/linux/brokers_clean.sh`
-- `scripts/linux/runtime_start.sh`
-- `scripts/linux/runtime_replay_trades.sh`
-- `scripts/linux/rest_start_dev.sh`
-- `scripts/linux/web_start_dev.sh`
-
-### Windows / PowerShell
-
-- `scripts/win/brokers_start.ps1`
-- `scripts/win/brokers_stop.ps1`
-- `scripts/win/brokers_clean.ps1`
-- `scripts/win/runtime_start.ps1`
-- `scripts/win/rest_start_dev.ps1`
-- `scripts/win/web_start_dev.ps1`
-
----
-
-## 10) Validation Commands
-
-```bash
-# Web lint
-cd helix-web && npm run lint
-
-# REST build/test (.NET 10)
-cd helix-rest && dotnet build helix.sln
-cd helix-rest && dotnet test helix.sln
-
-# Core tests
-cd helix-core && pytest
-```
-
-Solution file location:
-
-- `helix-rest/helix.sln`
-
----
-
-## 11) Environment Variables (Main)
-
-Set in `scripts/linux/env.sh` / `scripts/win/env.ps1`:
-
-- `HELIX_DB_PATH`
-- `ASPNETCORE_URLS`
-- `ASPNETCORE_ENVIRONMENT`
-- `HELIX_WEB_URL`
-- `HELIX_WEB_PORT`
-- `HELIX_KAFKA_BOOTSTRAP_SERVERS`
-- `HELIX_RABBITMQ_HOST`
-- `HELIX_RABBITMQ_PORT`
-- `HELIX_RABBITMQ_QUEUE_PORTFOLIO_RECOMPUTE`
-- `HELIX_RABBITMQ_QUEUE_TRADE_COMPUTE`
-- `HELIX_RABBITMQ_MANAGEMENT_URL`
-- `HELIX_KAFKA_UI_URL`
-
----
-
-## 12) Troubleshooting
-
-### `NETSDK1045` (.NET 10 target not supported)
-
-Install .NET SDK 10.x and ensure `dotnet --list-sdks` includes 10.
-
-### Kafka `Connection refused` / broker down
-
-Start brokers first (`./scripts/linux/brokers_start.sh`) and confirm Kafka is on `localhost:9092`.
-
-### REST Kafka update consumer warnings about missing topics
-
-REST now creates update topics on startup and ignores `TopicAlreadyExists`. If this still appears, rebuild and restart REST on latest code.
-
-### Runtime thread `rabbitmq-worker stopped unexpectedly`
-
-RabbitMQ is unreachable or worker hit an unhandled exception. Check:
-
-- RabbitMQ service/UI running
-- queue names match env vars
-- runtime logs for specific task failure
-
-### Trade accepted but no positions/P&L/risk update
-
-Check:
-
-1. runtime process is running
-2. RabbitMQ queues have/consume tasks
-3. market data exists for traded instrument in `market_data`
-4. Kafka topics `positions.updated/pl.updated/risk.updated/trade.updated` receive events
-
----
-
-## 13) Repo Structure
-
-```text
-helix-core/      # Analytics primitives
-helix-runtime/   # RabbitMQ worker + Kafka update publisher
-helix-rest/      # .NET 10 API + SSE broadcaster + broker publishers/consumers
-helix-store/     # SQLite schema + seed/reset scripts
-helix-web/       # Next.js dashboard
-scripts/         # Linux + PowerShell helpers
-```

@@ -4,16 +4,16 @@ import type {
   CellDoubleClickedEvent,
   ColDef,
   FilterChangedEvent,
-  GridApi,
   GridReadyEvent,
   PaginationChangedEvent,
   SelectionChangedEvent,
 } from "ag-grid-community";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { DashboardCardShell } from "@/components/dashboard/DashboardCardShell";
 import { TradeFormModal } from "@/components/dashboard/TradeFormModal";
 import { HelixAgTable } from "@/components/grid/HelixAgTable";
 import { HelixHelpTooltip } from "@/components/grid/HelixHelpTooltip";
+import { useHelixTableControls } from "@/components/grid/useHelixTableControls";
 import type { CreateTradeRequest } from "@/lib/api/helix";
 import type { PortfolioTrade } from "@/lib/api/types";
 import { formatUkDate, formatUkDateTime } from "@/lib/format/date";
@@ -182,14 +182,6 @@ export function PortfolioTradesTable({
   onSaveTrade: (trade: CreateTradeRequest, amendTradeId?: string) => Promise<void>;
   onDeleteTrade: (tradeId: string) => Promise<void>;
 }) {
-  const gridApiRef = useRef<GridApi<PortfolioTrade> | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [lastPage, setLastPage] = useState(1);
-  const [visibleStart, setVisibleStart] = useState(0);
-  const [visibleEnd, setVisibleEnd] = useState(0);
-  const [visibleTotalRows, setVisibleTotalRows] = useState(0);
-  const [selectedCount, setSelectedCount] = useState(0);
-  const [hasFilters, setHasFilters] = useState(false);
   const [selectedTrade, setSelectedTrade] = useState<PortfolioTrade | null>(null);
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [formSeed, setFormSeed] = useState(0);
@@ -198,124 +190,38 @@ export function PortfolioTradesTable({
     () => trades.map((trade) => normalizeTrade(trade as PortfolioTrade | Record<string, unknown>)),
     [trades],
   );
+  const {
+    gridApiRef,
+    currentPage,
+    lastPage,
+    visibleStart,
+    visibleEnd,
+    visibleTotalRows,
+    selectedCount,
+    hasFilters,
+    attachApi,
+    refreshPaginationState,
+    handleFitColumnsToHeader,
+    handleFitColumnsToData,
+    handleDownloadCsv,
+    handleResetFilters,
+    handleGoToFirstPage,
+    handleGoToPreviousPage,
+    handleGoToNextPage,
+    handleGoToLastPage,
+    handleClearSelection,
+    handleFilterChanged,
+    handleSelectionCountChanged,
+  } = useHelixTableControls<PortfolioTrade>({
+    csvFileName: `${portfolioId.toLowerCase()}-trades.csv`,
+    autoFitToken: normalizedTrades,
+    onClearSelection: () => {
+      setSelectedTrade(null);
+    },
+  });
   const totalRows = normalizedTrades.length;
   const hasPrev = currentPage > 1;
   const hasNext = currentPage < lastPage;
-
-  function refreshPaginationState(api: GridApi<PortfolioTrade>) {
-    const nextCurrent = (api.paginationGetCurrentPage?.() ?? 0) + 1;
-    const nextLast = Math.max(1, api.paginationGetTotalPages?.() ?? 1);
-    const displayed = api.getDisplayedRowCount?.() ?? 0;
-    const firstDisplayed = api.getFirstDisplayedRowIndex?.() ?? -1;
-    const lastDisplayed = api.getLastDisplayedRowIndex?.() ?? -1;
-
-    setCurrentPage(nextCurrent);
-    setLastPage(nextLast);
-    setVisibleTotalRows(displayed);
-    setVisibleStart(firstDisplayed >= 0 ? firstDisplayed + 1 : 0);
-    setVisibleEnd(lastDisplayed >= 0 ? lastDisplayed + 1 : 0);
-  }
-
-  function handleFitColumnsToHeader() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    const cols = api.getColumns?.() ?? api.getAllDisplayedColumns?.() ?? [];
-    const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
-    if (colIds.length === 0) {
-      return;
-    }
-    api.autoSizeColumns?.(colIds, false);
-  }
-
-  function handleFitColumnsToData() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    const cols = api.getColumns?.() ?? api.getAllDisplayedColumns?.() ?? [];
-    const colIds = cols.map((column) => column.getColId?.()).filter(Boolean) as string[];
-    if (colIds.length === 0) {
-      return;
-    }
-    api.autoSizeColumns?.(colIds, true);
-  }
-
-  useEffect(() => {
-    const frame = requestAnimationFrame(() => {
-      handleFitColumnsToData();
-      if (gridApiRef.current) {
-        refreshPaginationState(gridApiRef.current);
-      }
-    });
-    return () => cancelAnimationFrame(frame);
-  }, [normalizedTrades]);
-
-  function handleDownloadCsv() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-
-    api.exportDataAsCsv({
-      fileName: `${portfolioId.toLowerCase()}-trades.csv`,
-    });
-  }
-
-  function handleResetFilters() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.setFilterModel(null);
-    api.onFilterChanged?.();
-    setHasFilters(false);
-    api.paginationGoToFirstPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToFirstPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToFirstPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToPreviousPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToPreviousPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToNextPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToNextPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleGoToLastPage() {
-    const api = gridApiRef.current;
-    if (!api) {
-      return;
-    }
-    api.paginationGoToLastPage?.();
-    refreshPaginationState(api);
-  }
-
-  function handleClearSelection() {
-    gridApiRef.current?.deselectAll();
-    setSelectedCount(0);
-    setSelectedTrade(null);
-  }
 
   function handleOpenTradeForm() {
     setFormSeed((seed) => seed + 1);
@@ -331,37 +237,10 @@ export function PortfolioTradesTable({
       await onDeleteTrade(selectedTrade.trade_id);
       gridApiRef.current?.deselectAll();
       setSelectedTrade(null);
-      setSelectedCount(0);
     } finally {
       setIsDeleting(false);
     }
   }
-
-  useEffect(() => {
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") {
-        return;
-      }
-      if (event.ctrlKey || event.metaKey || event.altKey) {
-        return;
-      }
-      if (!hasFilters) {
-        return;
-      }
-      const api = gridApiRef.current;
-      if (!api) {
-        return;
-      }
-      api.setFilterModel(null);
-      api.onFilterChanged?.();
-      setHasFilters(false);
-      api.paginationGoToFirstPage?.();
-      refreshPaginationState(api);
-    }
-
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [hasFilters]);
 
   return (
     <DashboardCardShell
@@ -548,7 +427,7 @@ export function PortfolioTradesTable({
           defaultColDef={defaultColDef}
           rowIdField="trade_id"
           onGridReady={(event: GridReadyEvent<PortfolioTrade>) => {
-            gridApiRef.current = event.api;
+            attachApi(event.api);
             requestAnimationFrame(() => {
               handleFitColumnsToData();
               refreshPaginationState(event.api);
@@ -559,8 +438,8 @@ export function PortfolioTradesTable({
           }}
           onSelectionChanged={(event: SelectionChangedEvent<PortfolioTrade>) => {
             const selectedRows = event.api.getSelectedRows();
-            setSelectedCount(selectedRows.length);
             setSelectedTrade(selectedRows[0] ?? null);
+            handleSelectionCountChanged(event.api);
           }}
           onCellDoubleClicked={(event: CellDoubleClickedEvent<PortfolioTrade>) => {
             if (!event.node) {
@@ -568,14 +447,11 @@ export function PortfolioTradesTable({
             }
             event.node.setSelected(!event.node.isSelected());
             const selectedRows = event.api.getSelectedRows();
-            setSelectedCount(selectedRows.length);
             setSelectedTrade(selectedRows[0] ?? null);
+            handleSelectionCountChanged(event.api);
           }}
           onFilterChanged={(event: FilterChangedEvent<PortfolioTrade>) => {
-            const filterModel = event.api.getFilterModel();
-            setHasFilters(Object.keys(filterModel ?? {}).length > 0);
-            event.api.paginationGoToFirstPage?.();
-            refreshPaginationState(event.api);
+            handleFilterChanged(event.api);
           }}
           gridOptions={{
             pagination: true,
@@ -602,7 +478,6 @@ export function PortfolioTradesTable({
           gridApiRef.current?.deselectAll();
           setIsFormOpen(false);
           setSelectedTrade(null);
-          setSelectedCount(0);
         }}
       />
     </DashboardCardShell>
