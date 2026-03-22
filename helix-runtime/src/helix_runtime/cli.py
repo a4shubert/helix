@@ -75,7 +75,7 @@ def _build_parser() -> argparse.ArgumentParser:
     replay.add_argument(
         "--skip-rabbitmq",
         action="store_true",
-        help="Skip RabbitMQ portfolio.compute and trade.compute task publishing during replay.",
+        help="Skip RabbitMQ position.pl.compute and trade.compute task publishing during replay.",
     )
 
     return parser
@@ -169,13 +169,13 @@ def _replay_trades(args: argparse.Namespace) -> int:
         for portfolio_id in sorted({portfolio_id for _, portfolio_id, _ in trades}):
             task = RabbitMqTask(
                 task_id=f"TASK-{uuid4().hex[:12].upper()}",
-                task_type=rabbitmq_config.portfolio_compute_queue,
+                task_type=rabbitmq_config.position_pl_compute_queue,
                 portfolio_id=portfolio_id,
                 requested_at=datetime.now(UTC),
             )
             queued_revalues.append(
                 task_publisher.publish_task(
-                    rabbitmq_config.portfolio_compute_queue,
+                    rabbitmq_config.position_pl_compute_queue,
                     task,
                 )
             )
@@ -201,7 +201,7 @@ def _replay_trades(args: argparse.Namespace) -> int:
                 "replayed_trade_count": len(trades),
                 "rabbitmq_queue": None
                 if args.skip_rabbitmq
-                else rabbitmq_config.portfolio_compute_queue,
+                else rabbitmq_config.position_pl_compute_queue,
                 "revalue_tasks": queued_revalues,
                 "trade_compute_queue": None
                 if args.skip_rabbitmq

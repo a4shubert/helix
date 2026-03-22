@@ -44,7 +44,7 @@ export function PortfolioDashboard() {
   const [collapsedCards, setCollapsedCards] = useState({
     summary: false,
     trades: true,
-    position: true,
+    position: false,
     marketData: true,
   });
   const [portfolioById, setPortfolioById] = useState<Record<string, PortfolioResponse>>({});
@@ -63,7 +63,9 @@ export function PortfolioDashboard() {
   const riskMetrics = riskSnapshot?.metrics ?? [];
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
   const visibleMarketDataRows = marketDataRows.filter((row) =>
-    portfolio.positions.some((position) => position.instrumentId === row.instrumentId),
+    portfolio.positions.some(
+      (position) => position.instrumentId === row.instrumentId && position.quantity !== 0,
+    ),
   );
   const firmWideTotalPnl = portfolioItems.reduce(
     (sum, item) => sum + (pnlByPortfolio[item.portfolioId]?.totalPnl ?? 0),
@@ -155,6 +157,14 @@ export function PortfolioDashboard() {
     }));
   }
 
+  function handleSelectPortfolio(portfolioId: string) {
+    setCollapsedCards((current) => ({
+      ...current,
+      summary: false,
+    }));
+    setSelectedPortfolio(portfolioId);
+  }
+
   async function handleSaveTrade(trade: CreateTradeRequest, amendTradeId?: string) {
     if (amendTradeId) {
       await amendTrade(amendTradeId, trade);
@@ -232,9 +242,10 @@ export function PortfolioDashboard() {
       }, 150);
     };
 
-    eventSource.addEventListener("portfolio.updated", scheduleRefresh);
-    eventSource.addEventListener("pl.updated", scheduleRefresh);
-    eventSource.addEventListener("risk.updated", scheduleRefresh);
+    eventSource.addEventListener("position.updated", scheduleRefresh);
+    eventSource.addEventListener("position.pl.updated", scheduleRefresh);
+    eventSource.addEventListener("portfolio.pl.updated", scheduleRefresh);
+    eventSource.addEventListener("portfolio.risk.updated", scheduleRefresh);
     eventSource.addEventListener("trade.deleted", scheduleRefresh);
     eventSource.addEventListener("trade.updated", scheduleRefresh);
     eventSource.onerror = () => {
@@ -259,7 +270,7 @@ export function PortfolioDashboard() {
           description: item.portfolioId,
         }))}
         selected={selectedPortfolio}
-        onSelect={(key) => setSelectedPortfolio(key)}
+        onSelect={handleSelectPortfolio}
         onRecompute={(key) => {
           void handleRecomputePortfolio(key);
         }}

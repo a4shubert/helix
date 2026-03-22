@@ -184,16 +184,16 @@ public class BasicSmokeTests : IClassFixture<WebApplicationFactory<Program>>
 
     private sealed class NoOpPortfolioRecomputeTaskPublisher : ITaskQueuePublisher
     {
-        public Task PublishPortfolioComputeAsync(
+        public Task PublishTradeComputeAsync(
             string portfolioId,
-            string? sourceEventId,
+            string tradeId,
             DateTime requestedAt,
             System.Threading.CancellationToken cancellationToken) =>
             Task.CompletedTask;
 
-        public Task PublishTradeComputeAsync(
+        public Task PublishPositionPlComputeAsync(
             string portfolioId,
-            string tradeId,
+            string? sourceEventId,
             DateTime requestedAt,
             System.Threading.CancellationToken cancellationToken) =>
             Task.CompletedTask;

@@ -59,6 +59,27 @@ function Stop-ListenerOnPort {
     }
 }
 
+function Assert-ProcessRunning {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+        [Parameter(Mandatory = $true)]
+        [int]$Pid,
+        [Parameter(Mandatory = $true)]
+        [string]$LogPath
+    )
+
+    $process = Get-Process -Id $Pid -ErrorAction SilentlyContinue
+    if (-not $process) {
+        Write-Host "[launch] $Name failed to stay running."
+        if (Test-Path $LogPath) {
+            Write-Host "[launch] Last $Name log lines:"
+            Get-Content $LogPath -Tail 40
+        }
+        exit 1
+    }
+}
+
 Clear-StalePidFile -Name "rest"
 Clear-StalePidFile -Name "runtime"
 Clear-StalePidFile -Name "web"
@@ -81,6 +102,7 @@ $rest = Start-Process `
 $rest.Id | Set-Content (Join-Path $RunDir "rest.pid")
 
 Start-Sleep -Seconds 4
+Assert-ProcessRunning -Name "rest" -Pid $rest.Id -LogPath (Join-Path $LogDir "rest.log")
 
 Write-Host "[launch] Starting helix-runtime..."
 $runtime = Start-Process `
@@ -92,6 +114,7 @@ $runtime = Start-Process `
 $runtime.Id | Set-Content (Join-Path $RunDir "runtime.pid")
 
 Start-Sleep -Seconds 3
+Assert-ProcessRunning -Name "runtime" -Pid $runtime.Id -LogPath (Join-Path $LogDir "runtime.log")
 
 Write-Host "[launch] Starting helix-web..."
 $web = Start-Process `
@@ -101,6 +124,9 @@ $web = Start-Process `
     -RedirectStandardOutput (Join-Path $LogDir "web.log") `
     -RedirectStandardError (Join-Path $LogDir "web.log")
 $web.Id | Set-Content (Join-Path $RunDir "web.pid")
+
+Start-Sleep -Seconds 3
+Assert-ProcessRunning -Name "web" -Pid $web.Id -LogPath (Join-Path $LogDir "web.log")
 
 Write-Host "[launch] Helix is starting."
 Write-Host "[launch] REST: $Env:HELIX_API_URL"

@@ -15,19 +15,6 @@ public sealed class RabbitMqTaskQueuePublisher : ITaskQueuePublisher
         _options = options.Value;
     }
 
-    public Task PublishPortfolioComputeAsync(
-        string portfolioId,
-        string? sourceEventId,
-        DateTime requestedAt,
-        CancellationToken cancellationToken)
-        => PublishTaskAsync(
-            _options.PortfolioComputeQueue,
-            BrokerTopology.PortfolioComputeQueue,
-            portfolioId,
-            sourceEventId,
-            requestedAt,
-            cancellationToken);
-
     public Task PublishTradeComputeAsync(
         string portfolioId,
         string tradeId,
@@ -38,6 +25,19 @@ public sealed class RabbitMqTaskQueuePublisher : ITaskQueuePublisher
             BrokerTopology.TradeComputeQueue,
             portfolioId,
             tradeId,
+            requestedAt,
+            cancellationToken);
+
+    public Task PublishPositionPlComputeAsync(
+        string portfolioId,
+        string? sourceEventId,
+        DateTime requestedAt,
+        CancellationToken cancellationToken)
+        => PublishTaskAsync(
+            _options.PositionPlComputeQueue,
+            BrokerTopology.PositionPlComputeQueue,
+            portfolioId,
+            sourceEventId,
             requestedAt,
             cancellationToken);
 

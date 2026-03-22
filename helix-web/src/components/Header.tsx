@@ -14,6 +14,9 @@ export function Header() {
           </h1>
 
           <nav className="hidden items-center justify-end gap-4 text-xl font-normal 2xl:flex">
+            <span className="-translate-x-[12.5rem] rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-xl text-[color:var(--color-text)]">
+              user: shubale
+            </span>
             <a
               href="https://github.com/a4shubert/helix"
               target="_blank"

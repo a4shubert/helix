@@ -12,12 +12,12 @@ port_from_url() {
 
 kill_listener_on_port() {
   local port="$1"
-  [[ -n "${port}" ]] || return
-  command -v lsof >/dev/null 2>&1 || return
+  [[ -n "${port}" ]] || return 0
+  command -v lsof >/dev/null 2>&1 || return 0
 
   local pids
   pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null | sort -u || true)"
-  [[ -n "${pids}" ]] || return
+  [[ -n "${pids}" ]] || return 0
 
   while IFS= read -r pid; do
     [[ -n "${pid}" ]] || continue
@@ -29,6 +29,8 @@ kill_listener_on_port() {
       kill -9 "${pid}" >/dev/null 2>&1 || true
     fi
   done <<< "${pids}"
+
+  return 0
 }
 
 if [[ -f "${SCRIPT_DIR}/env.sh" ]]; then

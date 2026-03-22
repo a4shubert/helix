@@ -7,13 +7,13 @@ from datetime import datetime
 
 
 @dataclass(frozen=True)
-class PersistedAnalytics:
-    """Identifiers of the snapshots written for a recomputed portfolio."""
+class PersistedPortfolioSnapshots:
+    """Identifiers of snapshots written for a portfolio processing stage."""
 
     portfolio_id: str
     position_snapshot_ids: list[str]
-    pnl_snapshot_id: str
-    risk_snapshot_id: str
+    pnl_snapshot_id: str | None
+    risk_snapshot_id: str | None
     valuation_ts: datetime
     market_data_as_of_ts: datetime
 
@@ -35,5 +35,5 @@ class TaskProcessingResult:
     task_id: str
     task_type: str
     portfolio_id: str
-    persisted: PersistedAnalytics
+    snapshot_ids: list[str]
     published_events: list[PortfolioUpdateEvent]

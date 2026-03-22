@@ -156,7 +156,7 @@ public static class TradeEndpoints
             db.Trades.Add(entity);
             await db.SaveChangesAsync(cancellationToken);
             await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
             return Results.Ok(new
@@ -205,7 +205,7 @@ public static class TradeEndpoints
 
             await db.SaveChangesAsync(cancellationToken);
             await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
             return Results.Ok(new
@@ -237,14 +237,14 @@ public static class TradeEndpoints
 
             var requestedAt = DateTime.UtcNow;
             await publisher.PublishTradeDeletedAsync(tradeId, portfolioId, requestedAt, cancellationToken);
-            await taskPublisher.PublishPortfolioComputeAsync(portfolioId, null, requestedAt, cancellationToken);
+            await taskPublisher.PublishPositionPlComputeAsync(portfolioId, null, requestedAt, cancellationToken);
 
             return Results.Accepted($"/api/portfolio?portfolioId={portfolioId}", new
             {
                 tradeId,
                 portfolioId,
                 status = "deleted-queued",
-                queue = BrokerTopology.PortfolioComputeQueue,
+                queue = BrokerTopology.PositionPlComputeQueue,
                 requestedAt
             });
         }).WithTags("trades");

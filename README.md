@@ -1,6 +1,6 @@
 # Helix
 
-Helix is a front-office portfolio analytics platform that delivers real-time positions, P&L, and risk by combining a web interface, a REST orchestration layer, a core analytics engine, and an asynchronous runtime for event-driven processing. It supports full trading workflows, including trade capture, market data updates, and asynchronous portfolio recomputation, while keeping persistent state in SQLite and using Kafka plus RabbitMQ for event distribution and background work. The platform is structured so that web, orchestration, analytics, runtime, and storage concerns remain separate and inspectable.
+Helix is a front-office portfolio analytics platform that delivers real-time positions, P&L, and risk by combining a web interface, a REST orchestration layer, a core analytics engine, and an asynchronous runtime for event-driven processing. It supports full trading workflows, including trade capture, market data updates, and staged asynchronous analytics recomputation, while keeping persistent state in SQLite and using Kafka plus RabbitMQ for event distribution and background work. The platform is structured so that web, orchestration, analytics, runtime, and storage concerns remain separate and inspectable.
 
 ---
 
@@ -55,17 +55,19 @@ Typical live flow:
 1. A trade is created, amended, or deleted through `helix-web`.
 2. `helix-rest` validates and persists the trade in SQLite.
 3. `helix-rest` publishes:
-   - Kafka trade events such as `trade.updated` or `trade.deleted`
-   - RabbitMQ tasks such as `portfolio.compute` and `trade.compute`
-4. `helix-runtime` consumes the task, reloads trades and market data from SQLite, and runs analytics through `helix-core`.
-5. `helix-runtime` persists fresh `position`, `pnl`, and `risk` snapshots.
-6. `helix-runtime` publishes Kafka updates:
-   - `portfolio.updated`
-   - `pl.updated`
-   - `risk.updated`
+   - Kafka trade events such as `trade.created`, `trade.updated`, or `trade.deleted`
+   - RabbitMQ tasks such as `trade.compute` and `position.pl.compute`
+4. `helix-runtime` consumes `trade.compute`, enriches trade notional/state, then consumes `position.pl.compute` to rebuild instrument positions and position-level P&L through `helix-core`.
+5. `helix-runtime` persists fresh `position` snapshots with row-level `realized_pnl`, `unrealized_pnl`, and `total_pnl`, then queues `portfolio.pl.compute` and `portfolio.risk.compute`.
+6. `helix-runtime` computes and persists portfolio-level `pnl` and `risk` snapshots from those position snapshots.
+7. `helix-runtime` publishes Kafka updates:
+   - `position.updated`
+   - `position.pl.updated`
+   - `portfolio.pl.updated`
+   - `portfolio.risk.updated`
    - `trade.updated`
-7. `helix-rest` consumes those Kafka updates and rebroadcasts them over server-sent events.
-8. `helix-web` listens to SSE and refreshes the visible portfolio state.
+8. `helix-rest` consumes those Kafka updates and rebroadcasts them over server-sent events.
+9. `helix-web` listens to SSE and refreshes the visible portfolio state, including the filtered market data view for currently held positions.
 
 ---
 
@@ -79,6 +81,7 @@ Primary responsibilities:
 
 - trade entry, amendment, and deletion
 - portfolio dashboard and market data views
+- position rows with realized, unrealized, and total P&L contribution
 - live refresh from REST SSE events
 - client-side grid interaction and filtering
 
@@ -100,10 +103,11 @@ Primary responsibilities:
 
 Primary responsibilities:
 
-- consume `portfolio.compute` and `trade.compute`
+- consume `trade.compute`, `position.pl.compute`, `portfolio.pl.compute`, and `portfolio.risk.compute`
 - load trades and market inputs from SQLite
 - invoke `helix-core`
 - persist `position`, `pnl`, and `risk`
+- stage analytics so position reconstruction happens before portfolio P&L and portfolio risk
 - publish Kafka update events
 
 ### helix-core (python)
@@ -151,10 +155,17 @@ Core tables:
 - `risk`
 - `audit`
 
+Snapshot details:
+
+- `position` stores live instrument positions plus row-level `realized_pnl`, `unrealized_pnl`, and `total_pnl`
+- `pnl` stores portfolio-level `total_pnl`, `realized_pnl`, and `unrealized_pnl`
+- `risk` stores `delta`, `gross_exposure`, `net_exposure`, and `var_95`
+
 Reset and seed tooling:
 
 - [`helix-store/init_clean_state.py`](/Users/alexandershubert/git/helix/helix-store/init_clean_state.py)
 - [`scripts/linux/store_init_clean_state.sh`](/Users/alexandershubert/git/helix/scripts/linux/store_init_clean_state.sh)
+- [`scripts/win/store_init_clean_state.ps1`](/Users/alexandershubert/git/helix/scripts/win/store_init_clean_state.ps1)
 
 ---
 

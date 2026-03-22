@@ -17,12 +17,11 @@ def rebuild_positions_with_realized_pnl(
     market_inputs: dict[str, MarketInput],
     *,
     pnl_model: PnlModel,
-) -> tuple[list[PositionSnapshot], float]:
+) -> list[PositionSnapshot]:
     """Aggregate trades into live positions using the supplied P&L model."""
     grouped = group_trades_by_instrument(trades)
 
     positions: list[PositionSnapshot] = []
-    total_realized_pnl = 0.0
 
     for (_, _), position_trades in sorted(grouped.items()):
         ordered = sorted(position_trades, key=lambda trade: trade.trade_timestamp)
@@ -33,12 +32,19 @@ def rebuild_positions_with_realized_pnl(
             raise KeyError(f"Missing market input for instrument '{first.instrument_id}'.")
 
         valuation = pnl_model.value(ordered, market)
-        total_realized_pnl += valuation.realized_pnl
         absolute_quantity = abs(valuation.signed_quantity)
-        if absolute_quantity == 0:
+        if absolute_quantity == 0 and valuation.realized_pnl == 0:
             continue
 
-        direction = "LONG" if valuation.signed_quantity >= 0 else "SHORT"
+        direction = (
+            "LONG"
+            if valuation.signed_quantity > 0
+            else "SHORT"
+            if valuation.signed_quantity < 0
+            else "LONG"
+            if last.side.upper() == "BUY"
+            else "SHORT"
+        )
         latest_book = next((trade.book for trade in reversed(ordered) if trade.book), None)
 
         positions.append(
@@ -57,12 +63,14 @@ def rebuild_positions_with_realized_pnl(
                 market_data_ts=market.market_data_timestamp,
                 notional=mark_to_market(absolute_quantity, valuation.carrying_price),
                 market_value=mark_to_market(absolute_quantity, market.market_price),
+                realized_pnl=valuation.realized_pnl,
                 unrealized_pnl=valuation.unrealized_pnl,
+                total_pnl=valuation.realized_pnl + valuation.unrealized_pnl,
                 book=latest_book,
             )
         )
 
-    return positions, total_realized_pnl
+    return positions
 
 
 def rebuild_positions(
@@ -72,7 +80,7 @@ def rebuild_positions(
     pnl_model: PnlModel,
 ) -> list[PositionSnapshot]:
     """Return position snapshots using the supplied P&L model."""
-    positions, _ = rebuild_positions_with_realized_pnl(
+    positions = rebuild_positions_with_realized_pnl(
         trades,
         market_inputs,
         pnl_model=pnl_model,

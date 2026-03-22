@@ -91,6 +91,9 @@ public class HelixContext : DbContext
             entity.Property(x => x.MarketDataTs).HasColumnName("market_data_ts");
             entity.Property(x => x.Notional).HasColumnName("notional");
             entity.Property(x => x.MarketValue).HasColumnName("market_value");
+            entity.Property(x => x.RealizedPnl).HasColumnName("realized_pnl");
+            entity.Property(x => x.UnrealizedPnl).HasColumnName("unrealized_pnl");
+            entity.Property(x => x.TotalPnl).HasColumnName("total_pnl");
             entity.Property(x => x.Book).HasColumnName("book");
             entity.Property(x => x.AsOfTs).HasColumnName("as_of_ts");
             entity.Property(x => x.SourceEventId).HasColumnName("source_event_id");

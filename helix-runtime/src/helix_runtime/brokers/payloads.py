@@ -70,9 +70,10 @@ def build_portfolio_update_payload(event: PortfolioUpdateEvent) -> dict[str, obj
 
 def kafka_topic_for_update(event: PortfolioUpdateEvent, config: KafkaConfig) -> str:
     mapping = {
-        "portfolio.updated": config.portfolio_updated_topic,
-        "pl.updated": config.pl_updated_topic,
-        "risk.updated": config.risk_updated_topic,
+        "position.updated": config.position_updated_topic,
+        "position.pl.updated": config.position_pl_updated_topic,
+        "portfolio.pl.updated": config.portfolio_pl_updated_topic,
+        "portfolio.risk.updated": config.portfolio_risk_updated_topic,
     }
     try:
         return mapping[event.topic]

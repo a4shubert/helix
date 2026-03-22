@@ -20,23 +20,25 @@ port_from_url() {
 
 cleanup_pid_file() {
   local pid_file="$1"
-  [[ -f "${pid_file}" ]] || return
+  [[ -f "${pid_file}" ]] || return 0
 
   local pid
   pid="$(cat "${pid_file}" 2>/dev/null || true)"
   if [[ -n "${pid}" ]] && ! kill -0 "${pid}" >/dev/null 2>&1; then
     rm -f "${pid_file}"
   fi
+
+  return 0
 }
 
 kill_listener_on_port() {
   local port="$1"
-  [[ -n "${port}" ]] || return
-  command -v lsof >/dev/null 2>&1 || return
+  [[ -n "${port}" ]] || return 0
+  command -v lsof >/dev/null 2>&1 || return 0
 
   local pids
   pids="$(lsof -tiTCP:"${port}" -sTCP:LISTEN 2>/dev/null | sort -u || true)"
-  [[ -n "${pids}" ]] || return
+  [[ -n "${pids}" ]] || return 0
 
   while IFS= read -r pid; do
     [[ -n "${pid}" ]] || continue
@@ -47,6 +49,8 @@ kill_listener_on_port() {
       kill -9 "${pid}" >/dev/null 2>&1 || true
     fi
   done <<< "${pids}"
+
+  return 0
 }
 
 require_command() {
@@ -60,6 +64,28 @@ require_command() {
 
 require_command brew "Homebrew not found."
 require_command java "java not found."
+
+validate_pid_file_running() {
+  local name="$1"
+  local pid_file="${RUN_DIR}/${name}.pid"
+  if [[ ! -f "${pid_file}" ]]; then
+    echo "[launch] ${name} did not create a pid file."
+    return 1
+  fi
+
+  local pid
+  pid="$(cat "${pid_file}" 2>/dev/null || true)"
+  if [[ -z "${pid}" ]] || ! kill -0 "${pid}" >/dev/null 2>&1; then
+    echo "[launch] ${name} failed to stay running."
+    if [[ -f "${LOG_DIR}/${name}.log" ]]; then
+      echo "[launch] Last ${name}.log lines:"
+      tail -n 40 "${LOG_DIR}/${name}.log" || true
+    fi
+    return 1
+  fi
+
+  return 0
+}
 
 cleanup_pid_file "${RUN_DIR}/rest.pid"
 cleanup_pid_file "${RUN_DIR}/runtime.pid"
@@ -102,16 +128,21 @@ nohup "${SCRIPT_DIR}/rest_start_dev.sh" >"${LOG_DIR}/rest.log" 2>&1 &
 echo $! > "${RUN_DIR}/rest.pid"
 
 sleep 4
+validate_pid_file_running "rest"
 
 echo "[launch] Starting helix-runtime..."
 nohup "${SCRIPT_DIR}/runtime_start.sh" >"${LOG_DIR}/runtime.log" 2>&1 &
 echo $! > "${RUN_DIR}/runtime.pid"
 
 sleep 3
+validate_pid_file_running "runtime"
 
 echo "[launch] Starting helix-web..."
 nohup "${SCRIPT_DIR}/web_start_dev.sh" >"${LOG_DIR}/web.log" 2>&1 &
 echo $! > "${RUN_DIR}/web.pid"
+
+sleep 3
+validate_pid_file_running "web"
 
 echo "[launch] Helix is starting."
 echo "[launch] REST: ${HELIX_API_URL}"

@@ -20,14 +20,13 @@ def compute_portfolio_pnl(
     portfolio_id: str,
     positions: list[PositionSnapshot],
     *,
-    realized_pnl: float = 0.0,
     valuation_ts: datetime | None = None,
 ) -> PortfolioPnlSnapshot:
-    """Aggregate position-level unrealized P&L into portfolio P&L."""
+    """Aggregate position-level P&L into portfolio P&L."""
     valuation_time = valuation_ts or utc_now()
+    realized_pnl = round2(sum(position.realized_pnl for position in positions))
     unrealized_pnl = round2(sum(position.unrealized_pnl for position in positions))
-    realized_pnl = round2(realized_pnl)
-    total_pnl = round2(realized_pnl + unrealized_pnl)
+    total_pnl = round2(sum(position.total_pnl for position in positions))
     return PortfolioPnlSnapshot(
         portfolio_id=portfolio_id,
         total_pnl=total_pnl,
@@ -60,7 +59,6 @@ def compute_portfolio_analytics(
     trades: list[Trade],
     market_inputs: dict[str, MarketInput],
     *,
-    realized_pnl: float = 0.0,
     valuation_ts: datetime | None = None,
     pnl_model: str | PnlModel | None = None,
     risk_model: str | RiskModel | None = None,
@@ -69,7 +67,7 @@ def compute_portfolio_analytics(
     valuation_time = valuation_ts or utc_now()
     resolved_pnl_model = resolve_pnl_model(pnl_model)
     resolved_risk_model = resolve_risk_model(risk_model)
-    positions, computed_realized_pnl = rebuild_positions_with_realized_pnl(
+    positions = rebuild_positions_with_realized_pnl(
         trades,
         market_inputs,
         pnl_model=resolved_pnl_model,
@@ -78,7 +76,6 @@ def compute_portfolio_analytics(
     pnl = compute_portfolio_pnl(
         portfolio_id,
         positions,
-        realized_pnl=realized_pnl + computed_realized_pnl,
         valuation_ts=valuation_time,
     )
     risk = compute_portfolio_risk(

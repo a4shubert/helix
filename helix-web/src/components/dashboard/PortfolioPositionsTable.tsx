@@ -37,6 +37,9 @@ function normalizePosition(
     marketDataTs: String(raw.marketDataTs ?? raw.market_data_ts ?? ""),
     notional: Number(raw.notional ?? 0),
     marketValue: Number(raw.marketValue ?? raw.market_value ?? 0),
+    realizedPnl: Number(raw.realizedPnl ?? raw.realized_pnl ?? 0),
+    unrealizedPnl: Number(raw.unrealizedPnl ?? raw.unrealized_pnl ?? 0),
+    totalPnl: Number(raw.totalPnl ?? raw.total_pnl ?? 0),
     book: String(raw.book ?? ""),
   };
 }
@@ -69,6 +72,34 @@ const columnDefs: ColDef[] = [
     valueFormatter: formatIntegerCell,
   },
   {
+    field: "marketPrice",
+    headerName: "Market Price",
+    minWidth: 140,
+    type: "numericColumn",
+    valueFormatter: formatDecimalCell,
+  },
+  {
+    field: "realizedPnl",
+    headerName: "Realized P&L",
+    minWidth: 160,
+    type: "numericColumn",
+    valueFormatter: formatDecimalCell,
+  },
+  {
+    field: "unrealizedPnl",
+    headerName: "Unrealized P&L",
+    minWidth: 170,
+    type: "numericColumn",
+    valueFormatter: formatDecimalCell,
+  },
+  {
+    field: "totalPnl",
+    headerName: "Total P&L",
+    minWidth: 150,
+    type: "numericColumn",
+    valueFormatter: formatDecimalCell,
+  },
+  {
     field: "averageCost",
     headerName: "Average Cost",
     minWidth: 150,
@@ -83,13 +114,6 @@ const columnDefs: ColDef[] = [
     cellDataType: "text",
     filterValueGetter: (params) =>
       formatUkDateTime((params.data as PortfolioPosition | undefined)?.lastUpdateTs),
-  },
-  {
-    field: "marketPrice",
-    headerName: "Market Price",
-    minWidth: 140,
-    type: "numericColumn",
-    valueFormatter: formatDecimalCell,
   },
   {
     field: "marketDataTs",
