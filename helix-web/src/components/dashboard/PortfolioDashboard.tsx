@@ -41,6 +41,20 @@ type PortfolioUpdateEventPayload = {
   timestamp: string;
 };
 
+type CollapsedCardsState = {
+  summary: boolean;
+  trades: boolean;
+  position: boolean;
+  marketData: boolean;
+};
+
+const defaultCollapsedCards = (): CollapsedCardsState => ({
+  summary: false,
+  trades: true,
+  position: false,
+  marketData: true,
+});
+
 export function PortfolioDashboard() {
   const refreshInFlightRef = useRef(false);
   const pendingRefreshRef = useRef<{
@@ -52,12 +66,7 @@ export function PortfolioDashboard() {
   const firmWideRefreshTimerRef = useRef<number | null>(null);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
   const [portfolioItems, setPortfolioItems] = useState<PortfolioListItem[]>([]);
-  const [collapsedCards, setCollapsedCards] = useState({
-    summary: false,
-    trades: true,
-    position: false,
-    marketData: true,
-  });
+  const [collapsedCardsByPortfolio, setCollapsedCardsByPortfolio] = useState<Record<string, CollapsedCardsState>>({});
   const [portfolioById, setPortfolioById] = useState<Record<string, PortfolioResponse>>({});
   const [tradesByPortfolio, setTradesByPortfolio] = useState<Record<string, PortfolioTrade[]>>({});
   const [pnlByPortfolio, setPnlByPortfolio] = useState<Record<string, PnlSnapshotResponse>>({});
@@ -73,6 +82,7 @@ export function PortfolioDashboard() {
   const pnlMetrics = pnlSnapshot?.metrics ?? [];
   const riskMetrics = riskSnapshot?.metrics ?? [];
   const portfolioTrades = tradesByPortfolio[selectedPortfolio] ?? [];
+  const collapsedCards = collapsedCardsByPortfolio[selectedPortfolio] ?? defaultCollapsedCards();
   const visibleMarketDataRows = marketDataRows.filter((row) =>
     portfolio.positions.some(
       (position) => position.instrumentId === row.instrumentId && position.quantity !== 0,
@@ -194,11 +204,17 @@ export function PortfolioDashboard() {
     }, SSE_REFRESH_INTERVAL_MS);
   }, [refreshPortfolioPnl]);
 
-  function toggleCard(card: keyof typeof collapsedCards) {
-    setCollapsedCards((current) => ({
-      ...current,
-      [card]: !current[card],
-    }));
+  function toggleCard(card: keyof CollapsedCardsState) {
+    setCollapsedCardsByPortfolio((current) => {
+      const nextPortfolioState = {
+        ...(current[selectedPortfolio] ?? defaultCollapsedCards()),
+        [card]: !(current[selectedPortfolio] ?? defaultCollapsedCards())[card],
+      };
+      return {
+        ...current,
+        [selectedPortfolio]: nextPortfolioState,
+      };
+    });
   }
 
   function handleSelectPortfolio(portfolioId: string) {
@@ -240,6 +256,14 @@ export function PortfolioDashboard() {
           return;
         }
         setPortfolioItems(items);
+        setCollapsedCardsByPortfolio((current) => ({
+          ...current,
+          ...Object.fromEntries(
+            items
+              .filter((item) => !(item.portfolioId in current))
+              .map((item) => [item.portfolioId, defaultCollapsedCards()]),
+          ),
+        }));
         if (items.length === 0) {
           return;
         }
