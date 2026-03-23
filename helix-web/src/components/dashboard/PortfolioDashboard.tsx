@@ -26,11 +26,20 @@ import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTabl
 import { FirmWidePnlCard } from "@/components/dashboard/FirmWidePnlCard";
 import type { MarketDataRow, PortfolioResponse, PortfolioTrade } from "@/lib/api/types";
 
+const SSE_REFRESH_INTERVAL_MS = 2000;
+
 const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
   portfolioId,
   asOf: "",
   positions: [],
 });
+
+type PortfolioUpdateEventPayload = {
+  eventType: string;
+  portfolioId: string;
+  snapshotId: string;
+  timestamp: string;
+};
 
 export function PortfolioDashboard() {
   const refreshInFlightRef = useRef(false);
@@ -38,7 +47,9 @@ export function PortfolioDashboard() {
     portfolioId: string;
     showLoading: boolean;
   } | null>(null);
-  const sseRefreshTimerRef = useRef<number | null>(null);
+  const selectedPortfolioRefreshTimerRef = useRef<number | null>(null);
+  const pendingPnlPortfolioIdsRef = useRef<Set<string>>(new Set());
+  const firmWideRefreshTimerRef = useRef<number | null>(null);
   const [selectedPortfolio, setSelectedPortfolio] = useState<string>("");
   const [portfolioItems, setPortfolioItems] = useState<PortfolioListItem[]>([]);
   const [collapsedCards, setCollapsedCards] = useState({
@@ -97,6 +108,41 @@ export function PortfolioDashboard() {
     });
   }, [portfolioItems]);
 
+  const refreshPortfolioPnl = useCallback(async (portfolioId: string) => {
+    const pnlResponse = await fetchPnl(portfolioId);
+    startTransition(() => {
+      setPnlByPortfolio((current) => ({
+        ...current,
+        [portfolioId]: pnlResponse,
+      }));
+    });
+  }, []);
+
+  const scheduleSelectedPortfolioRefresh = useCallback(() => {
+    if (selectedPortfolioRefreshTimerRef.current !== null) {
+      return;
+    }
+    selectedPortfolioRefreshTimerRef.current = window.setTimeout(() => {
+      selectedPortfolioRefreshTimerRef.current = null;
+      void refreshPortfolio(selectedPortfolio, { showLoading: false });
+    }, SSE_REFRESH_INTERVAL_MS);
+  }, [refreshPortfolio, selectedPortfolio]);
+
+  const scheduleFirmWidePnlRefresh = useCallback((portfolioId: string) => {
+    pendingPnlPortfolioIdsRef.current.add(portfolioId);
+    if (firmWideRefreshTimerRef.current !== null) {
+      return;
+    }
+    firmWideRefreshTimerRef.current = window.setTimeout(() => {
+      const portfolioIds = Array.from(pendingPnlPortfolioIdsRef.current);
+      pendingPnlPortfolioIdsRef.current.clear();
+      firmWideRefreshTimerRef.current = null;
+      portfolioIds.forEach((id) => {
+        void refreshPortfolioPnl(id);
+      });
+    }, SSE_REFRESH_INTERVAL_MS);
+  }, [refreshPortfolioPnl]);
+
   const refreshPortfolio = useCallback(async (
     portfolioId: string,
     options?: {
@@ -131,8 +177,6 @@ export function PortfolioDashboard() {
         setMarketDataRows(marketDataResponse.rows);
         setMarketDataAsOf(marketDataResponse.asOf);
       });
-
-      await refreshFirmWidePnl();
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to load portfolio data.");
     } finally {
@@ -148,7 +192,7 @@ export function PortfolioDashboard() {
         });
       }
     }
-  }, [refreshFirmWidePnl]);
+  }, []);
 
   function toggleCard(card: keyof typeof collapsedCards) {
     setCollapsedCards((current) => ({
@@ -158,11 +202,12 @@ export function PortfolioDashboard() {
   }
 
   function handleSelectPortfolio(portfolioId: string) {
-    setCollapsedCards((current) => ({
-      ...current,
+    setCollapsedCards({
       summary: false,
       trades: true,
-    }));
+      position: false,
+      marketData: true,
+    });
     setSelectedPortfolio(portfolioId);
   }
 
@@ -228,39 +273,61 @@ export function PortfolioDashboard() {
   }, [selectedPortfolio, refreshPortfolio]);
 
   useEffect(() => {
+    void refreshFirmWidePnl();
+  }, [refreshFirmWidePnl]);
+
+  useEffect(() => {
     const eventSource = new EventSource(
       `${getHelixApiUrl()}/api/events?portfolioId=${selectedPortfolio}`,
     );
 
-    const scheduleRefresh = () => {
-      if (sseRefreshTimerRef.current !== null) {
-        return;
-      }
-
-      sseRefreshTimerRef.current = window.setTimeout(() => {
-        sseRefreshTimerRef.current = null;
-        void refreshPortfolio(selectedPortfolio, { showLoading: false });
-      }, 150);
-    };
-
-    eventSource.addEventListener("position.updated", scheduleRefresh);
-    eventSource.addEventListener("position.pl.updated", scheduleRefresh);
-    eventSource.addEventListener("portfolio.pl.updated", scheduleRefresh);
-    eventSource.addEventListener("portfolio.risk.updated", scheduleRefresh);
-    eventSource.addEventListener("trade.deleted", scheduleRefresh);
-    eventSource.addEventListener("trade.updated", scheduleRefresh);
+    eventSource.addEventListener("position.updated", scheduleSelectedPortfolioRefresh);
+    eventSource.addEventListener("position.pl.updated", scheduleSelectedPortfolioRefresh);
+    eventSource.addEventListener("portfolio.risk.updated", scheduleSelectedPortfolioRefresh);
+    eventSource.addEventListener("trade.deleted", scheduleSelectedPortfolioRefresh);
+    eventSource.addEventListener("trade.updated", scheduleSelectedPortfolioRefresh);
     eventSource.onerror = () => {
       eventSource.close();
     };
 
     return () => {
-      if (sseRefreshTimerRef.current !== null) {
-        window.clearTimeout(sseRefreshTimerRef.current);
-        sseRefreshTimerRef.current = null;
+      if (selectedPortfolioRefreshTimerRef.current !== null) {
+        window.clearTimeout(selectedPortfolioRefreshTimerRef.current);
+        selectedPortfolioRefreshTimerRef.current = null;
       }
       eventSource.close();
     };
-  }, [selectedPortfolio, refreshPortfolio]);
+  }, [scheduleSelectedPortfolioRefresh, selectedPortfolio]);
+
+  useEffect(() => {
+    const eventSource = new EventSource(`${getHelixApiUrl()}/api/events`);
+
+    const handlePortfolioPnlUpdated = (event: Event) => {
+      const messageEvent = event as MessageEvent<string>;
+      try {
+        const payload = JSON.parse(messageEvent.data) as PortfolioUpdateEventPayload;
+        if (!payload.portfolioId) {
+          return;
+        }
+        scheduleFirmWidePnlRefresh(payload.portfolioId);
+      } catch {
+      }
+    };
+
+    eventSource.addEventListener("portfolio.pl.updated", handlePortfolioPnlUpdated);
+    eventSource.onerror = () => {
+      eventSource.close();
+    };
+
+    return () => {
+      if (firmWideRefreshTimerRef.current !== null) {
+        window.clearTimeout(firmWideRefreshTimerRef.current);
+        firmWideRefreshTimerRef.current = null;
+      }
+      pendingPnlPortfolioIdsRef.current = new Set();
+      eventSource.close();
+    };
+  }, [scheduleFirmWidePnlRefresh]);
 
   return (
     <section className="flex h-full min-h-full w-full gap-6">

@@ -13,8 +13,8 @@ export function Header() {
             P&amp;L and Risk Analytical Dashboard
           </h1>
 
-          <nav className="hidden items-center justify-end gap-4 text-xl font-normal 2xl:flex">
-            <span className="-translate-x-[12.5rem] rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-xl text-[color:var(--color-text)]">
+          <nav className="hidden items-center justify-end gap-3 text-xl font-normal 2xl:flex">
+            <span className="rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-lg text-[color:var(--color-text)]">
               user: shubale
             </span>
             <a

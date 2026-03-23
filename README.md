@@ -27,13 +27,13 @@ Prerequisites:
 Linux / macOS:
 
 ```bash
-./scripts/linux/install.sh
+./scripts/tex/linux/install.sh
 ```
 
 Windows / PowerShell:
 
 ```powershell
-./scripts/win/install.ps1
+./scripts/tex/windows/install.ps1
 ```
 
 What the install scripts do:
@@ -164,26 +164,35 @@ Snapshot details:
 Reset and seed tooling:
 
 - [`helix-store/init_clean_state.py`](/Users/alexandershubert/git/helix/helix-store/init_clean_state.py)
-- [`scripts/linux/store_init_clean_state.sh`](/Users/alexandershubert/git/helix/scripts/linux/store_init_clean_state.sh)
-- [`scripts/win/store_init_clean_state.ps1`](/Users/alexandershubert/git/helix/scripts/win/store_init_clean_state.ps1)
+- [`scripts/demo/linux/clean.sh`](/Users/alexandershubert/git/helix/scripts/demo/linux/clean.sh)
+- [`scripts/demo/windows/clean.ps1`](/Users/alexandershubert/git/helix/scripts/demo/windows/clean.ps1)
 
 ---
 
 ## Launch
 
+Script layout:
+
+- `scripts/demo`
+  - most-used operational scripts such as `build`, `clean`, `launch`, `stop`, and `trades`
+- `scripts/tex`
+  - lower-level environment, broker, build, notebook, and helper scripts
+
+Build and start the full production stack:
+
 Linux / macOS:
 
 ```bash
-./scripts/linux/launch.sh
+./scripts/tex/linux/launch_full.sh
 ```
 
 Windows / PowerShell:
 
 ```powershell
-./scripts/win/launch.ps1
+./scripts/tex/windows/launch_full.ps1
 ```
 
-What the launch scripts do:
+What the `launch_full` scripts do:
 
 - start Kafka and RabbitMQ
 - reset the SQLite store to clean seeded state
@@ -194,32 +203,98 @@ What the launch scripts do:
 - start `helix-web` with the production server
 - write process logs under `.helix/logs`
 
-Stop the full stack:
+Build production artifacts only:
 
 Linux / macOS:
 
 ```bash
-./scripts/linux/stop.sh
+./scripts/demo/linux/build.sh
 ```
 
 Windows / PowerShell:
 
 ```powershell
-./scripts/win/stop.ps1
+./scripts/demo/windows/build.ps1
 ```
+
+Reset the SQLite store to a clean seeded state:
+
+Linux / macOS:
+
+```bash
+./scripts/demo/linux/clean.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/demo/windows/clean.ps1
+```
+
+Start the full production stack without rebuilding REST or web:
+
+Linux / macOS:
+
+```bash
+./scripts/demo/linux/launch.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/demo/windows/launch.ps1
+```
+
+Compatibility aliases:
+
+- [`scripts/tex/linux/launch.sh`](/Users/alexandershubert/git/helix/scripts/tex/linux/launch.sh) delegates to [`scripts/tex/linux/launch_full.sh`](/Users/alexandershubert/git/helix/scripts/tex/linux/launch_full.sh)
+- [`scripts/tex/windows/launch.ps1`](/Users/alexandershubert/git/helix/scripts/tex/windows/launch.ps1) delegates to [`scripts/tex/windows/launch_full.ps1`](/Users/alexandershubert/git/helix/scripts/tex/windows/launch_full.ps1)
+
+Stop the full stack:
+
+Linux / macOS:
+
+```bash
+./scripts/demo/linux/stop.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/demo/windows/stop.ps1
+```
+
+Send sample trades directly through the runtime booking path:
+
+Linux / macOS:
+
+```bash
+./scripts/demo/linux/trades.sh --n 100 --t 0
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/demo/windows/trades.ps1 --n 100 --t 0
+```
+
+Where:
+
+- `--n` = number of trades to book for each portfolio
+- `--t` = delay between submitted trades in milliseconds
 
 Launch Jupyter notebooks against the Helix runtime environment:
 
 Linux / macOS:
 
 ```bash
-./scripts/linux/notebook_start.sh
+./scripts/tex/linux/notebook_start.sh
 ```
 
 Windows / PowerShell:
 
 ```powershell
-./scripts/win/notebook_start.ps1
+./scripts/tex/windows/notebook_start.ps1
 ```
 
 Default URLs:

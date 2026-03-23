@@ -155,7 +155,7 @@ const defaultColDef: ColDef<PortfolioTrade> = {
   },
 };
 
-const PAGE_SIZE = 5;
+const PAGE_SIZE = 10;
 
 const helpItems = [
   "Single click focuses a cell; copy with Cmd+C (macOS) or Ctrl+C (Windows/Linux).",

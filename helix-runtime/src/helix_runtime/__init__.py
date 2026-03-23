@@ -23,9 +23,20 @@ from .brokers.topology import (
     TRADE_UPDATED_TOPIC,
 )
 from .brokers.workers import RabbitMqTaskWorker
+from .client import (
+    BookedTrade,
+    TradeBookingRequest,
+    book_trade,
+    default_db_path,
+    default_rabbitmq_config,
+    insert_trade,
+    publish_trade_processing_tasks,
+    utc_now,
+)
 from .infrastructure.sqlite_store import SqliteHelixStore
 
 __all__ = [
+    "BookedTrade",
     "KafkaConfig",
     "KafkaUpdatePublisher",
     "PORTFOLIO_PL_COMPUTE_QUEUE",
@@ -43,12 +54,19 @@ __all__ = [
     "RabbitMqTask",
     "RabbitMqTaskWorker",
     "RabbitMqTaskPublisher",
+    "TradeBookingRequest",
     "TRADE_COMPUTE_QUEUE",
     "RuntimeService",
     "RuntimeServiceConfig",
     "SqliteHelixStore",
     "TRADE_UPDATED_TOPIC",
     "TradeComputeProcessor",
+    "book_trade",
+    "default_db_path",
+    "default_rabbitmq_config",
+    "insert_trade",
     "load_kafka_config_from_env",
     "load_rabbitmq_config_from_env",
+    "publish_trade_processing_tasks",
+    "utc_now",
 ]

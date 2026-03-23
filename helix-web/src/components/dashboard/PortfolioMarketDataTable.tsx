@@ -59,7 +59,7 @@ const defaultColDef: ColDef<MarketDataRow> = {
   },
 };
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 10;
 
 const helpItems = [
   "Single click focuses a cell; copy with Cmd+C (macOS) or Ctrl+C (Windows/Linux).",
