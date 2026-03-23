@@ -216,6 +216,15 @@ class SqliteHelixStore:
         suffix = _snapshot_suffix(valuation_ts)
         position_snapshot_ids: list[str] = []
         with self._connect() as connection:
+            # Replace the portfolio's current live position set so deletes and
+            # fully-closed books do not leave stale rows behind.
+            connection.execute(
+                """
+                DELETE FROM position
+                WHERE portfolio_id = ?
+                """,
+                (portfolio_id,),
+            )
             for position in positions:
                 snapshot_id = f"POSITION-{position.position_id}-{suffix}"
                 position_snapshot_ids.append(snapshot_id)

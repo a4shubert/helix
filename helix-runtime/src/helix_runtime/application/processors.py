@@ -42,7 +42,7 @@ def _market_data_as_of(market_inputs: dict, fallback: datetime) -> datetime:
 
 
 class PositionPlComputeProcessor:
-    """Rebuild positions with realized and unrealized P&L, then enqueue downstream work."""
+    """Rebuild positions and persist full portfolio analytics in one pass."""
 
     def __init__(self, store: StoreGateway, publisher: EventPublisher, task_publisher, rabbitmq_config) -> None:
         self._store = store
@@ -60,40 +60,21 @@ class PositionPlComputeProcessor:
             market_inputs,
             valuation_ts=task.requested_at,
         )
-        position_snapshot_ids = self._store.save_positions(
-            analytics.portfolio_id,
-            analytics.positions,
-            valuation_ts=analytics.pnl.valuation_ts,
-            source_event_id=task.source_event_id or task.task_id,
-        )
-        persisted = PersistedPortfolioSnapshots(
-            portfolio_id=analytics.portfolio_id,
-            position_snapshot_ids=position_snapshot_ids,
-            pnl_snapshot_id=None,
-            risk_snapshot_id=None,
-            valuation_ts=analytics.pnl.valuation_ts,
+        persisted = self._store.save_portfolio_analytics(
+            analytics,
             market_data_as_of_ts=market_data_as_of_ts,
-        )
-        _enqueue_follow_up_task(
-            self._task_publisher,
-            self._rabbitmq_config.portfolio_pl_compute_queue,
-            task.portfolio_id,
-            task.requested_at,
-            task.source_event_id,
-        )
-        _enqueue_follow_up_task(
-            self._task_publisher,
-            self._rabbitmq_config.portfolio_risk_compute_queue,
-            task.portfolio_id,
-            task.requested_at,
-            task.source_event_id,
+            source_event_id=task.source_event_id or task.task_id,
         )
         published_events = _publish_updates(self._publisher, persisted)
         return TaskProcessingResult(
             task_id=task.task_id,
             task_type=task.task_type,
             portfolio_id=task.portfolio_id,
-            snapshot_ids=position_snapshot_ids,
+            snapshot_ids=[
+                *persisted.position_snapshot_ids,
+                *([persisted.pnl_snapshot_id] if persisted.pnl_snapshot_id else []),
+                *([persisted.risk_snapshot_id] if persisted.risk_snapshot_id else []),
+            ],
             published_events=published_events,
         )
 
