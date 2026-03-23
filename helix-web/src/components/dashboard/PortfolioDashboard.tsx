@@ -202,12 +202,6 @@ export function PortfolioDashboard() {
   }
 
   function handleSelectPortfolio(portfolioId: string) {
-    setCollapsedCards({
-      summary: false,
-      trades: true,
-      position: false,
-      marketData: true,
-    });
     setSelectedPortfolio(portfolioId);
   }
 
