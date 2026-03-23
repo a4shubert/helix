@@ -10,12 +10,12 @@ flowchart LR
     web <--> |HTTP + SSE| rest
     rest <--> |query + persist| store
 
-    rest --> |trade.created| kafka
-    rest --> |portfolio.compute, trade.compute| rabbit
+    rest --> |trade.created, trade.updated, trade.deleted| kafka
+    rest --> |trade.compute, position.pl.compute| rabbit
 
-    rabbit --> |task consume| runtime
+    rabbit --> |consume trade.compute, position.pl.compute,<br/>portfolio.pl.compute, portfolio.risk.compute| runtime
     runtime --> |analytics calls| core
     runtime --> |persist positions/pnl/risk + trade status| store
-    runtime --> |trade.updated, portfolio.updated, pl.updated, risk.updated| kafka
+    runtime --> |trade.updated, position.updated, position.pl.updated,<br/>portfolio.pl.updated, portfolio.risk.updated| kafka
 
     kafka --> |update consume| rest
