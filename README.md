@@ -85,6 +85,8 @@ Primary responsibilities:
 - live refresh from REST SSE events
 - client-side grid interaction and filtering
 
+![Dashboard](docs/dashboard.png)
+
 ### helix-rest (asp\.net | ef.core )
 
 `helix-rest` is the orchestration and integration layer. It exposes the HTTP API, persists trades and reference data with EF Core, reads snapshot data from SQLite, publishes Kafka and RabbitMQ messages, and rebroadcasts platform updates to the web tier over SSE.
@@ -295,6 +297,20 @@ Windows / PowerShell:
 
 ```powershell
 ./scripts/tex/windows/notebook_start.ps1
+```
+
+Render `README.pdf` from the current `README.md`:
+
+Linux / macOS:
+
+```bash
+./scripts/tex/linux/readme_pdf.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/tex/windows/readme_pdf.ps1
 ```
 
 Default URLs:
