@@ -53,6 +53,18 @@ public sealed class KafkaTradeEventPublisher : ITradeEventPublisher, IDisposable
             BrokerTopology.TradeDeletedTopic,
             cancellationToken);
 
+    public async Task PublishTradeUpdatedAsync(
+        string tradeId,
+        string portfolioId,
+        DateTime occurredAt,
+        CancellationToken cancellationToken)
+        => await PublishTradeEventAsync(
+            tradeId,
+            portfolioId,
+            occurredAt,
+            BrokerTopology.TradeUpdatedTopic,
+            cancellationToken);
+
     private async Task PublishTradeEventAsync(
         string tradeId,
         string portfolioId,

@@ -26,7 +26,7 @@ import { PortfolioTradesTable } from "@/components/dashboard/PortfolioTradesTabl
 import { FirmWidePnlCard } from "@/components/dashboard/FirmWidePnlCard";
 import type { MarketDataRow, PortfolioResponse, PortfolioTrade } from "@/lib/api/types";
 
-const SSE_REFRESH_INTERVAL_MS = 2000;
+const SSE_REFRESH_INTERVAL_MS = 500;
 
 const emptyPortfolio = (portfolioId: string): PortfolioResponse => ({
   portfolioId,
@@ -118,31 +118,6 @@ export function PortfolioDashboard() {
     });
   }, []);
 
-  const scheduleSelectedPortfolioRefresh = useCallback(() => {
-    if (selectedPortfolioRefreshTimerRef.current !== null) {
-      return;
-    }
-    selectedPortfolioRefreshTimerRef.current = window.setTimeout(() => {
-      selectedPortfolioRefreshTimerRef.current = null;
-      void refreshPortfolio(selectedPortfolio, { showLoading: false });
-    }, SSE_REFRESH_INTERVAL_MS);
-  }, [refreshPortfolio, selectedPortfolio]);
-
-  const scheduleFirmWidePnlRefresh = useCallback((portfolioId: string) => {
-    pendingPnlPortfolioIdsRef.current.add(portfolioId);
-    if (firmWideRefreshTimerRef.current !== null) {
-      return;
-    }
-    firmWideRefreshTimerRef.current = window.setTimeout(() => {
-      const portfolioIds = Array.from(pendingPnlPortfolioIdsRef.current);
-      pendingPnlPortfolioIdsRef.current.clear();
-      firmWideRefreshTimerRef.current = null;
-      portfolioIds.forEach((id) => {
-        void refreshPortfolioPnl(id);
-      });
-    }, SSE_REFRESH_INTERVAL_MS);
-  }, [refreshPortfolioPnl]);
-
   const refreshPortfolio = useCallback(async (
     portfolioId: string,
     options?: {
@@ -193,6 +168,31 @@ export function PortfolioDashboard() {
       }
     }
   }, []);
+
+  const scheduleSelectedPortfolioRefresh = useCallback(() => {
+    if (selectedPortfolioRefreshTimerRef.current !== null) {
+      return;
+    }
+    selectedPortfolioRefreshTimerRef.current = window.setTimeout(() => {
+      selectedPortfolioRefreshTimerRef.current = null;
+      void refreshPortfolio(selectedPortfolio, { showLoading: false });
+    }, SSE_REFRESH_INTERVAL_MS);
+  }, [refreshPortfolio, selectedPortfolio]);
+
+  const scheduleFirmWidePnlRefresh = useCallback((portfolioId: string) => {
+    pendingPnlPortfolioIdsRef.current.add(portfolioId);
+    if (firmWideRefreshTimerRef.current !== null) {
+      return;
+    }
+    firmWideRefreshTimerRef.current = window.setTimeout(() => {
+      const portfolioIds = Array.from(pendingPnlPortfolioIdsRef.current);
+      pendingPnlPortfolioIdsRef.current.clear();
+      firmWideRefreshTimerRef.current = null;
+      portfolioIds.forEach((id) => {
+        void refreshPortfolioPnl(id);
+      });
+    }, SSE_REFRESH_INTERVAL_MS);
+  }, [refreshPortfolioPnl]);
 
   function toggleCard(card: keyof typeof collapsedCards) {
     setCollapsedCards((current) => ({

@@ -204,7 +204,7 @@ public static class TradeEndpoints
             ApplyTradeAmendment(existingTrade, request, instrument, submittedAt);
 
             await db.SaveChangesAsync(cancellationToken);
-            await publisher.PublishTradeCreatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
+            await publisher.PublishTradeUpdatedAsync(tradeId, request.PortfolioId, submittedAt, cancellationToken);
             await taskPublisher.PublishPositionPlComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
             await taskPublisher.PublishTradeComputeAsync(request.PortfolioId, tradeId, submittedAt, cancellationToken);
 
