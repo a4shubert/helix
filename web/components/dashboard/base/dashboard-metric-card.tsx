@@ -17,6 +17,7 @@ export function DashboardMetricCard({
   tone = "neutral",
   isExpanded = true,
   valueClassName,
+  centerHeader = false,
   children,
 }: Readonly<{
   title: ReactNode;
@@ -25,6 +26,7 @@ export function DashboardMetricCard({
   tone?: Tone;
   isExpanded?: boolean;
   valueClassName?: string;
+  centerHeader?: boolean;
   children?: ReactNode;
 }>) {
   return (
@@ -32,8 +34,18 @@ export function DashboardMetricCard({
       data-initial-state={isExpanded ? "expanded" : "collapsed"}
       className="shrink-0 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-5 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.35)]"
     >
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
-        <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
+      <div
+        className={[
+          "flex flex-col gap-4 md:flex-row md:items-center md:gap-6",
+          centerHeader ? "justify-center" : "md:justify-between",
+        ].join(" ")}
+      >
+        <div
+          className={[
+            "flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2",
+            centerHeader ? "justify-center text-center" : "",
+          ].join(" ")}
+        >
           <div
             className={`${metricTextSizeClassName} font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)]`}
           >
@@ -48,11 +60,13 @@ export function DashboardMetricCard({
           ) : null}
         </div>
 
-        <div
-          className={`text-left ${valueClassName ?? metricTextSizeClassName} font-medium tabular-nums md:text-right ${toneClassName[tone]}`}
-        >
-          {value}
-        </div>
+        {value ? (
+          <div
+            className={`text-left ${valueClassName ?? metricTextSizeClassName} font-medium tabular-nums md:text-right ${toneClassName[tone]}`}
+          >
+            {value}
+          </div>
+        ) : null}
       </div>
 
       {children}

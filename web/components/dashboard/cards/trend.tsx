@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import {
   CartesianGrid,
   Line,
@@ -23,20 +23,16 @@ export function Trend({
   isExpanded?: boolean;
 }>) {
   const [collapsed, setCollapsed] = useState(!isExpanded);
-  const [isMounted, setIsMounted] = useState(false);
-  const latestPoint = points[points.length - 1];
-
-  useEffect(() => {
-    setIsMounted(true);
-  }, []);
+  const isMounted = useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false,
+  );
 
   return (
     <DashboardCardShell
       title="Trend"
       collapsed={collapsed}
-      collapsedValue={latestPoint ? formatSignedDecimal(latestPoint.totalPnl) : undefined}
-      collapsedValuePositive={(latestPoint?.totalPnl ?? 0) >= 0}
-      collapsedValueAlignRight
       onToggle={() => setCollapsed((value) => !value)}
       expandedClassName="h-[540px] shrink-0"
     >
