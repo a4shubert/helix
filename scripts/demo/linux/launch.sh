@@ -121,6 +121,9 @@ fi
 echo "[start] Waiting for brokers..."
 sleep 5
 
+echo "[start] Building helix-rest and helix-web production artifacts..."
+"${SCRIPT_DIR}/build.sh"
+
 export ASPNETCORE_ENVIRONMENT=Production
 
 echo "[start] Starting helix-rest..."

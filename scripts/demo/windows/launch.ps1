@@ -90,6 +90,9 @@ Stop-ListenerOnPort -Port ([int]$Env:HELIX_WEB_PORT)
 & (Join-Path (Join-Path (Split-Path -Parent (Split-Path -Parent $ScriptDir)) "tex/windows") "brokers_start.ps1")
 Start-Sleep -Seconds 5
 
+Write-Host "[start] Building helix-rest and helix-web production artifacts..."
+& (Join-Path $ScriptDir "build.ps1")
+
 $Env:ASPNETCORE_ENVIRONMENT = "Production"
 
 Write-Host "[start] Starting helix-rest..."
