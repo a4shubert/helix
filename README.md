@@ -145,3 +145,8 @@ helix/
 ├── exec/
 └── infra/
 ```
+
+## Updates
+
+- `2026-04-04 20:08:43 BST`:
+  Expanded the `web` dashboard with reusable base components and concrete cards for Firm Wide P&L, P&L Summary and Risk, Trades, and P&L Trend. Added mocked datasets across the dashboard, including a seeded 50-row trades dataset and a denser P&L trend series with more clearly separated lines. Ported the AG Grid trades experience into the Helix app with filtering, pagination, fit-to-header, fit-to-data, CSV export, selection controls, keyboard copy support, paste-to-filter behavior, and auto-height rendering, then tuned it to show 15 rows per page without the internal vertical scrollbar. Normalized dashboard structure and presentation in `web`, including the `base/` and `cards/` split, Helix naming cleanup for legacy header tokens, wider large-screen layout, larger Firm Wide P&L emphasis, and chart readability improvements such as more data points, stronger line separation, larger axis labels, and increased chart height.

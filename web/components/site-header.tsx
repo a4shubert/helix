@@ -52,7 +52,7 @@ export function SiteHeader() {
               <WorldClocks clocks={headerClocks} showSeconds={false} />
             </div>
 
-            <h1 className="hbc-title hbc-title-wide min-w-0 justify-self-center text-center text-white">
+            <h1 className="helix-title hbc-title helix-title-wide hbc-title-wide min-w-0 justify-self-center text-center text-white">
               {headerTitle}
             </h1>
 
@@ -66,7 +66,7 @@ export function SiteHeader() {
               <WorldClocks clocks={headerClocks} showSeconds={false} />
             </div>
 
-            <h1 className="hbc-title hbc-title-medium text-center text-white">
+            <h1 className="helix-title hbc-title helix-title-medium hbc-title-medium text-center text-white">
               <span className="block whitespace-nowrap">
                 {headerTitleMediumLines[0]}
               </span>
@@ -83,7 +83,7 @@ export function SiteHeader() {
           <div className="grid items-center gap-3 py-2 [grid-template-columns:2.75rem_minmax(0,1fr)_2.75rem]">
             <div className="h-11 w-11" aria-hidden="true" />
 
-            <h1 className="hbc-title hbc-title-compact min-w-0 text-center text-white">
+            <h1 className="helix-title hbc-title helix-title-compact hbc-title-compact min-w-0 text-center text-white">
               {headerTitle}
             </h1>
 

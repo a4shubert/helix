@@ -12,7 +12,8 @@
   --color-link: #6366f1;
   --color-link-surface: rgba(99, 102, 241, 0.15);
   --color-link-surface-hover: rgba(99, 102, 241, 0.25);
-  --hbc-header-h: 240px;
+  --helix-header-h: 240px;
+  --hbc-header-h: var(--helix-header-h);
 }
 
 :root[data-theme="helix"] {
@@ -32,7 +33,8 @@
   --color-link: #7aa2f7;
   --color-link-surface: var(--color-bg);
   --color-link-surface-hover: var(--color-card);
-  --hbc-header-h: 240px;
+  --helix-header-h: 240px;
+  --hbc-header-h: var(--helix-header-h);
 }
 
 @theme inline {
@@ -55,7 +57,7 @@ body {
 
 html {
   font-size: 17px;
-  scroll-padding-top: var(--hbc-header-h);
+  scroll-padding-top: var(--helix-header-h);
 }
 
 #app-scroll {
@@ -72,6 +74,7 @@ select {
   font: inherit;
 }
 
+.helix-title,
 .hbc-title {
   font-family: var(--font-open-sans), "Segoe UI", sans-serif;
   font-size: clamp(1.2rem, 3.2vw, 3.7rem);
@@ -80,10 +83,12 @@ select {
   font-weight: 200;
 }
 
+.helix-title-wide,
 .hbc-title-wide {
   white-space: nowrap;
 }
 
+.helix-title-medium,
 .hbc-title-medium {
   max-width: 14ch;
   margin-inline: auto;
@@ -93,6 +98,7 @@ select {
   white-space: normal;
 }
 
+.helix-title-compact,
 .hbc-title-compact {
   max-width: none;
   margin-inline: auto;
@@ -101,6 +107,7 @@ select {
 }
 
 @media (max-width: 1320px) {
+  .helix-title-compact,
   .hbc-title-compact {
     font-size: clamp(1.1765rem, calc(0.0906rem + 4.7319vw), 2.9412rem);
   }
@@ -132,7 +139,7 @@ details[open] > .mobile-header-panel {
   --ag-border-color: var(--color-border);
   --ag-header-column-resize-handle-color: rgba(255, 255, 255, 0.45);
   --ag-active-color: var(--color-accent);
-  --ag-font-size: 0.95rem;
+  --ag-font-size: 0.76rem;
   --ag-font-family: var(--font-open-sans), "Segoe UI", "Helvetica Neue", Helvetica, Arial, sans-serif;
   --ag-selected-row-background-color: color-mix(in oklab, var(--color-accent) 18%, transparent);
   --ag-range-selection-border-color: var(--color-accent);
@@ -185,12 +192,13 @@ details[open] > .mobile-header-panel {
 }
 
 @media (min-width: 1920px) {
+  .helix-title,
   .hbc-title {
     font-size: clamp(3.4rem, 1vw, 4.5rem);
   }
 
   :root[data-theme="helix"] {
-    --hbc-header-h: 160px;
+    --helix-header-h: 160px;
   }
 }
 

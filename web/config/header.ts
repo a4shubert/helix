@@ -10,7 +10,7 @@ export type HeaderLink = {
 
 export const headerTitle = "Helix: Quant Trading System";
 export const headerTitleMediumLines = ["Helix: Quant", "Trading System"];
-export const headerUserLabel = "user: ashubert";
+export const headerUserLabel = "User: ashubert";
 export const headerDocumentationLink: HeaderLink = {
   label: "Documentation",
   href: "about:blank",
