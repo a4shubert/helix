@@ -35,16 +35,16 @@ export function WorldClocks({
   }, [clocks, showSeconds]);
 
   return (
-    <div className="flex min-w-0 flex-nowrap items-center gap-4 text-base text-slate-200">
+    <div className="flex items-stretch gap-3 text-base text-slate-200">
       {clocks.map((clock) => (
         <div
           key={clock.label}
-          className="min-w-0 rounded-md border border-slate-800 bg-[color:var(--color-bg)] px-4 py-3 shadow-sm"
+          className="min-w-[120px] rounded-md border border-slate-800 bg-[color:var(--color-bg)] px-4 py-3 shadow-sm"
         >
           <div className="w-full text-center text-2xl font-normal tabular-nums text-indigo-100">
             {times[clock.label] ?? (showSeconds ? "--:--:--" : "--:--")}
           </div>
-          <div className="mt-1 w-full truncate text-center text-base font-medium text-white 2xl:text-lg">
+          <div className="mt-1 w-full truncate text-center text-base font-medium text-white">
             {clock.label}
           </div>
         </div>

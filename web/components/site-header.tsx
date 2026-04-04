@@ -1,60 +1,97 @@
+"use client";
+
+import { HeaderActions } from "@/components/header-actions";
+import { MobileHeaderMenu } from "@/components/mobile-header-menu";
 import { WorldClocks } from "@/components/world-clocks";
 import {
-  headerApiLinks,
   headerClocks,
-  headerDocumentationLink,
   headerTitle,
-  headerUserLabel,
+  headerTitleMediumLines,
 } from "@/config/header";
+import { useEffect, useState } from "react";
+
+const COMPACT_HEADER_MAX_WIDTH = 1440;
+const WIDE_HEADER_MIN_WIDTH = 2091;
+
+type HeaderMode = "compact" | "medium" | "wide";
 
 export function SiteHeader() {
+  const [headerMode, setHeaderMode] = useState<HeaderMode>("compact");
+
+  useEffect(() => {
+    const syncLayout = () => {
+      const width = window.innerWidth;
+
+      if (width >= WIDE_HEADER_MIN_WIDTH) {
+        setHeaderMode("wide");
+        return;
+      }
+
+      if (width <= COMPACT_HEADER_MAX_WIDTH) {
+        setHeaderMode("compact");
+        return;
+      }
+
+      setHeaderMode("medium");
+    };
+
+    syncLayout();
+    window.addEventListener("resize", syncLayout);
+
+    return () => {
+      window.removeEventListener("resize", syncLayout);
+    };
+  }, []);
+
   return (
     <header className="sticky top-0 z-50 w-full border-b border-[color:var(--color-border)] [background:var(--color-bg)]">
-      <div className="w-full px-[5vw] py-4 [background:var(--color-bg)]">
-        <div className="grid w-full grid-cols-1 items-center gap-4 py-4 2xl:grid-cols-[auto_minmax(0,1fr)_auto]">
-          <div className="hidden items-center justify-start 2xl:flex">
-            <WorldClocks clocks={headerClocks} showSeconds={false} />
-          </div>
-
-          <h1 className="hbc-title min-w-0 w-full text-center whitespace-normal break-normal text-white hyphens-none">
-            {headerTitle}
-          </h1>
-
-          <nav className="hidden items-center justify-end gap-3 text-xl font-normal 2xl:flex">
-            <span className="rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-lg text-[color:var(--color-text)]">
-              {headerUserLabel}
-            </span>
-            <a
-              href={headerDocumentationLink.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-2xl text-[color:var(--color-text)] transition-[text-decoration-color] hover:underline hover:decoration-2 hover:underline-offset-4 hover:decoration-[var(--color-accent)]"
-            >
-              {headerDocumentationLink.label}
-            </a>
-            <div className="group relative">
-              <button
-                type="button"
-                className="rounded-md bg-[color:var(--color-link-surface)] px-3 py-2 text-2xl text-[color:var(--color-text)] transition-[text-decoration-color] hover:underline hover:decoration-2 hover:underline-offset-4 hover:decoration-[var(--color-accent)]"
-              >
-                APIs
-              </button>
-              <div className="invisible absolute right-0 top-full z-50 mt-2 min-w-[220px] rounded-md border border-[color:var(--color-border)] bg-[color:var(--color-card)] p-2 opacity-0 shadow-[0_16px_40px_rgba(2,6,23,0.45)] transition-all duration-150 group-hover:visible group-hover:opacity-100">
-                {headerApiLinks.map((link) => (
-                  <a
-                    key={link.label}
-                    href={link.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block rounded px-3 py-2 text-lg text-[color:var(--color-text)] hover:bg-[color:var(--color-link-surface)]"
-                  >
-                    {link.label}
-                  </a>
-                ))}
-              </div>
+      <div className="w-full px-4 py-4 sm:px-6 lg:px-[5vw] [background:var(--color-bg)]">
+        {headerMode === "wide" ? (
+          <div className="grid items-center gap-6 py-2 [grid-template-columns:auto_minmax(0,1fr)_auto]">
+            <div className="min-w-0 justify-self-start">
+              <WorldClocks clocks={headerClocks} showSeconds={false} />
             </div>
-          </nav>
-        </div>
+
+            <h1 className="hbc-title hbc-title-wide min-w-0 justify-self-center text-center text-white">
+              {headerTitle}
+            </h1>
+
+            <div className="justify-self-end">
+              <HeaderActions />
+            </div>
+          </div>
+        ) : headerMode === "medium" ? (
+          <div className="grid items-center gap-6 py-2 [grid-template-columns:auto_minmax(0,1fr)_auto]">
+            <div className="min-w-0 justify-self-start">
+              <WorldClocks clocks={headerClocks} showSeconds={false} />
+            </div>
+
+            <h1 className="hbc-title hbc-title-medium text-center text-white">
+              <span className="block whitespace-nowrap">
+                {headerTitleMediumLines[0]}
+              </span>
+              <span className="block whitespace-nowrap">
+                {headerTitleMediumLines[1]}
+              </span>
+            </h1>
+
+            <div className="justify-self-end">
+              <HeaderActions />
+            </div>
+          </div>
+        ) : (
+          <div className="grid items-center gap-3 py-2 [grid-template-columns:2.75rem_minmax(0,1fr)_2.75rem]">
+            <div className="h-11 w-11" aria-hidden="true" />
+
+            <h1 className="hbc-title hbc-title-compact min-w-0 text-center text-white">
+              {headerTitle}
+            </h1>
+
+            <div className="justify-self-end">
+              <MobileHeaderMenu />
+            </div>
+          </div>
+        )}
       </div>
     </header>
   );

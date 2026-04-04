@@ -45,7 +45,7 @@ export default function RootLayout({
             className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden"
           >
             <SiteHeader />
-            <main className="min-h-0 flex-1 overflow-auto px-[5vw] py-5">
+            <main className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-[5vw]">
               {children}
             </main>
           </div>
