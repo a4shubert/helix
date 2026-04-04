@@ -8,8 +8,8 @@ elif [ -n "${ZSH_VERSION:-}" ]; then
 else
   _SRC="$0"
 fi
-SCRIPT_DIR="$(cd "$(dirname "${_SRC}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/../../.." && pwd)"
+HELIX_ENV_SCRIPT_DIR="$(cd "$(dirname "${_SRC}")" && pwd)"
+HELIX_ENV_REPO_ROOT="$(cd "${HELIX_ENV_SCRIPT_DIR}/../../.." && pwd)"
 
 if [[ -x "${HOME}/.dotnet/dotnet" ]]; then
   export DOTNET_ROOT="${HOME}/.dotnet"
@@ -23,7 +23,7 @@ if [[ -x "${HOME}/.dotnet/dotnet" ]]; then
   esac
 fi
 
-export HELIX_DB_PATH="${HELIX_DB_PATH:-${REPO_ROOT}/helix-store/helix.db}"
+export HELIX_DB_PATH="${HELIX_DB_PATH:-${HELIX_ENV_REPO_ROOT}/helix-store/helix.db}"
 export HELIX_API_URL="${HELIX_API_URL:-http://localhost:5057}"
 export ASPNETCORE_URLS="${ASPNETCORE_URLS:-http://localhost:5057}"
 export ASPNETCORE_ENVIRONMENT="${ASPNETCORE_ENVIRONMENT:-Development}"
@@ -40,7 +40,7 @@ export HELIX_RABBITMQ_MANAGEMENT_URL="${HELIX_RABBITMQ_MANAGEMENT_URL:-http://lo
 export HELIX_JAVA_HOME="${HELIX_JAVA_HOME:-/usr/local/opt/openjdk/libexec/openjdk.jdk/Contents/Home}"
 export HELIX_KAFKA_UI_PORT="${HELIX_KAFKA_UI_PORT:-8080}"
 export HELIX_KAFKA_UI_URL="${HELIX_KAFKA_UI_URL:-http://localhost:${HELIX_KAFKA_UI_PORT}}"
-export HELIX_KAFKA_UI_DIR="${HELIX_KAFKA_UI_DIR:-${REPO_ROOT}/tools/kafka-ui}"
+export HELIX_KAFKA_UI_DIR="${HELIX_KAFKA_UI_DIR:-${HELIX_ENV_REPO_ROOT}/tools/kafka-ui}"
 export HELIX_KAFKA_UI_JAR="${HELIX_KAFKA_UI_JAR:-${HELIX_KAFKA_UI_DIR}/kafka-ui-api.jar}"
 export HELIX_KAFKA_UI_PID_FILE="${HELIX_KAFKA_UI_PID_FILE:-${HELIX_KAFKA_UI_DIR}/kafka-ui.pid}"
 export HELIX_KAFKA_UI_LOG_FILE="${HELIX_KAFKA_UI_LOG_FILE:-${HELIX_KAFKA_UI_DIR}/kafka-ui.log}"
