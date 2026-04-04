@@ -24,7 +24,7 @@ export function Trend({
 }>) {
   const [collapsed, setCollapsed] = useState(!isExpanded);
   const isMounted = useSyncExternalStore(
-    () => () => {},
+    () => () => { },
     () => true,
     () => false,
   );

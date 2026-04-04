@@ -1,4 +1,8 @@
-import { formatSignedDecimal } from "@/lib/format/number";
+import {
+  DashboardMetricCard,
+  type DashboardMetricCardRow,
+} from "@/components/dashboard/base/dashboard-metric-card";
+import { formatDecimal, formatSignedDecimal } from "@/lib/format/number";
 import type { MetricValue } from "@/lib/types/dashboard";
 
 export function Pnl({
@@ -14,44 +18,61 @@ export function Pnl({
     metrics.find((metric) => metric.metricKey === "unrealized_pnl")?.value ?? 0;
   const totalPnl =
     metrics.find((metric) => metric.metricKey === "total_pnl")?.value ?? 0;
+  const totalGrossExposure =
+    metrics.find((metric) => metric.metricKey === "total_gross_exposure")?.value ?? 0;
+  const netExposure =
+    metrics.find((metric) => metric.metricKey === "net_exposure")?.value ?? 0;
+  const valueAtRisk =
+    metrics.find((metric) => metric.metricKey === "value_at_risk")?.value ?? 0;
 
-  const metricItems = [
-    { label: "Realized", value: realizedPnl },
-    { label: "Unrealized", value: unrealizedPnl },
-    { label: "Total", value: totalPnl },
+  const metricRows: DashboardMetricCardRow[] = [
+    {
+      items: [
+        {
+          label: "Realized",
+          value: formatSignedDecimal(realizedPnl),
+          tone: realizedPnl >= 0 ? "positive" : "negative",
+        },
+        {
+          label: "Unrealized",
+          value: formatSignedDecimal(unrealizedPnl),
+          tone: unrealizedPnl >= 0 ? "positive" : "negative",
+        },
+        {
+          label: "Total",
+          value: formatSignedDecimal(totalPnl),
+          tone: totalPnl >= 0 ? "positive" : "negative",
+          valueClassName: "text-[1.386rem] md:text-[1.584rem]",
+        },
+      ],
+    },
+    {
+      items: [
+        {
+          label: "Gross Exposure",
+          value: formatDecimal(totalGrossExposure),
+          tone: totalGrossExposure >= 0 ? "positive" : "negative",
+        },
+        {
+          label: "Net Exposure",
+          value: formatSignedDecimal(netExposure),
+          tone: netExposure >= 0 ? "positive" : "negative",
+        },
+        {
+          label: "VaR",
+          value: formatDecimal(valueAtRisk),
+          tone: valueAtRisk >= 0 ? "positive" : "negative",
+        },
+      ],
+    },
   ];
 
   return (
-    <section
-      data-initial-state={isExpanded ? "expanded" : "collapsed"}
-      className="shrink-0 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-5 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.35)]"
-    >
-      <div className="flex flex-col gap-4 md:grid md:grid-cols-[auto_minmax(0,1fr)] md:items-center md:gap-10">
-        <div className="text-[0.875rem] font-semibold uppercase tracking-[0.18em] text-[color:var(--color-accent)] md:text-[1rem]">
-          P&L
-        </div>
-        <div className="grid gap-3 md:grid-cols-3 md:gap-6">
-          {metricItems.map((metric) => (
-            <div key={metric.label} className="flex items-center justify-center gap-2 md:justify-self-center">
-              <span className="text-[1.155rem] font-medium uppercase tracking-[0.12em] text-white/70 md:text-[1.32rem]">
-                {metric.label}:
-              </span>
-              <span
-                className={[
-                  metric.label === "Total"
-                    ? "text-[1.386rem] font-medium tabular-nums md:text-[1.584rem]"
-                    : "text-[1.155rem] font-medium tabular-nums md:text-[1.32rem]",
-                  metric.value >= 0
-                    ? "text-[#2DD3B6] drop-shadow-[0_0_10px_rgba(45,211,182,0.28)]"
-                    : "text-[#f87171] drop-shadow-[0_0_10px_rgba(248,113,113,0.30)]",
-                ].join(" ")}
-              >
-                {formatSignedDecimal(metric.value)}
-              </span>
-            </div>
-          ))}
-        </div>
-      </div>
-    </section>
+    <DashboardMetricCard
+      title="P&L"
+      isExpanded={isExpanded}
+      headerClassName="md:pl-12"
+      rows={metricRows}
+    />
   );
 }

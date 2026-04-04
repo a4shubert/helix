@@ -1,5 +1,5 @@
 > Codex session bootstrap:
-> Read `README.md` for the current state and we'll continue. We'll be using `/Users/alexandershubert/git/HELIXT_TEST/helix/helix-web` as a source of inspiration and ideas, but do not copy-paste anything into this repository. Locate that repository.
+> Read `README.md` for the current state and inspect the repository and we'll continue. We'll be using `/Users/alexandershubert/git/HELIXT_TEST/helix/` as a source of inspiration and ideas, locate it and go through it, but do not copy-paste anything into this repository. Locate that repository.
 
 # Helix
 
@@ -157,3 +157,5 @@ helix/
   Continued the `web` dashboard refactor by renaming the concrete card files and exports to the shorter `pnl`, `trend`, `risk`, `market`, `position`, and `trades` scheme. Added Helix-native `Market` and `Position` cards using the shared dashboard shell and AG Grid helpers, expanded the mocked market and position datasets, removed header timestamps from `Pnl`, `Trend`, `Risk`, and `Market`, moved collapsed summary values for `Trend` and `Risk` to the right side of the header, and tuned `Market` to render 20 visible rows without an internal vertical scrollbar.
 - `2026-04-04 20:56:47 BST`:
   Renamed the risk card implementation to `risks`, moved realized, unrealized, and total P&L metrics into the `Pnl` card header, and iterated the header layout so the left-aligned `P&L` title and spread metric row render cleanly on wide screens. Reworked `Risks` to remove collapsed summary numbers, replace the old mixed metric table with three grouped tables for Return Metrics, Risk Metrics, and Risk-Adjusted Performance, and added fresh mocked values for the expanded analytics set. Also cleaned up the `Trend` card collapsed header so it no longer displays an irrelevant summary value and updated shared dashboard card behavior to support the revised layout.
+- `2026-04-04 21:47:55 BST`:
+  Continued the `web` dashboard refinement by consolidating strategy selection and strategy context into shared client state, renaming portfolio-facing dashboard UI and mock model fields to strategy terminology, and moving the active strategy, as-of time, and total P&L summary into the sticky site header below the Helix title. Reworked the strategy selector layout and typography, normalized primary text treatment to true white across shared dashboard components, aligned the `P&L` header title with the other card headers, and kept the `Pnl` card positioned beneath the selector as the scoped summary card for the selected strategy or combined view.

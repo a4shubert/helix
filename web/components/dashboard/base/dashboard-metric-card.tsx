@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
 type Tone = "positive" | "negative" | "neutral";
+type Alignment = "left" | "center" | "right";
 
 const toneClassName: Record<Tone, string> = {
   positive: "text-[#2DD3B6] drop-shadow-[0_0_10px_rgba(45,211,182,0.28)]",
@@ -10,6 +11,32 @@ const toneClassName: Record<Tone, string> = {
 
 const metricTextSizeClassName = "text-[0.875rem] md:text-[1rem]";
 
+export type DashboardMetricCardItem = {
+  label: ReactNode;
+  value: ReactNode;
+  tone?: Tone;
+  valueClassName?: string;
+  labelClassName?: string;
+};
+
+export type DashboardMetricCardRow = {
+  items: DashboardMetricCardItem[];
+  align?: Alignment;
+  itemClassName?: string;
+};
+
+function rowAlignmentClassName(align: Alignment): string {
+  if (align === "left") {
+    return "md:justify-items-start";
+  }
+
+  if (align === "right") {
+    return "md:justify-items-end";
+  }
+
+  return "md:justify-items-center";
+}
+
 export function DashboardMetricCard({
   title,
   subtitle,
@@ -18,15 +45,19 @@ export function DashboardMetricCard({
   isExpanded = true,
   valueClassName,
   centerHeader = false,
+  headerClassName,
+  rows,
   children,
 }: Readonly<{
   title: ReactNode;
   subtitle?: ReactNode;
-  value: ReactNode;
+  value?: ReactNode;
   tone?: Tone;
   isExpanded?: boolean;
   valueClassName?: string;
   centerHeader?: boolean;
+  headerClassName?: string;
+  rows?: DashboardMetricCardRow[];
   children?: ReactNode;
 }>) {
   return (
@@ -38,6 +69,7 @@ export function DashboardMetricCard({
         className={[
           "flex flex-col gap-4 md:flex-row md:items-center md:gap-6",
           centerHeader ? "justify-center" : "md:justify-between",
+          headerClassName ?? "",
         ].join(" ")}
       >
         <div
@@ -53,7 +85,7 @@ export function DashboardMetricCard({
           </div>
           {subtitle ? (
             <div
-              className={`${metricTextSizeClassName} font-medium tracking-[0.08em] text-white/90`}
+              className={`${metricTextSizeClassName} font-medium tracking-[0.08em] text-white`}
             >
               {subtitle}
             </div>
@@ -70,6 +102,48 @@ export function DashboardMetricCard({
       </div>
 
       {children}
+
+      {rows ? (
+        <div className="mt-4 grid gap-3">
+          {rows.map((row, rowIndex) => (
+            <div
+              key={rowIndex}
+              className={[
+                "grid gap-3 md:grid-cols-3 md:gap-6",
+                rowAlignmentClassName(row.align ?? "center"),
+              ].join(" ")}
+            >
+              {row.items.map((item, itemIndex) => (
+                <div
+                  key={itemIndex}
+                  className={[
+                    "flex items-center justify-center gap-2",
+                    row.itemClassName ?? "",
+                  ].join(" ")}
+                >
+                  <span
+                    className={[
+                      "text-[1.155rem] font-medium uppercase tracking-[0.12em] text-white md:text-[1.32rem]",
+                      item.labelClassName ?? "",
+                    ].join(" ")}
+                  >
+                    {item.label}:
+                  </span>
+                  <span
+                    className={[
+                      "text-[1.155rem] font-medium tabular-nums md:text-[1.32rem]",
+                      toneClassName[item.tone ?? "neutral"],
+                      item.valueClassName ?? "",
+                    ].join(" ")}
+                  >
+                    {item.value}
+                  </span>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      ) : null}
     </section>
   );
 }

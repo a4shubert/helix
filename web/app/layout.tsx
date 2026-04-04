@@ -5,6 +5,7 @@ import "ag-grid-community/styles/ag-theme-quartz.css";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { QueryProvider } from "@/components/query-provider";
+import { StrategyProvider } from "@/components/strategy-context";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -40,15 +41,17 @@ export default function RootLayout({
     >
       <body className="overflow-hidden border-0 text-[var(--color-text)] [background:var(--color-bg)]">
         <QueryProvider>
-          <div
-            id="app-scroll"
-            className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden"
-          >
-            <SiteHeader />
-            <main className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-[5vw]">
-              {children}
-            </main>
-          </div>
+          <StrategyProvider>
+            <div
+              id="app-scroll"
+              className="flex h-[100dvh] min-h-[100dvh] flex-col overflow-hidden"
+            >
+              <SiteHeader />
+              <main className="min-h-0 flex-1 overflow-auto px-4 py-5 sm:px-6 lg:px-[5vw]">
+                {children}
+              </main>
+            </div>
+          </StrategyProvider>
         </QueryProvider>
       </body>
     </html>

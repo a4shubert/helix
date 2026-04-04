@@ -15,13 +15,13 @@ import { HelixAgTable } from "@/components/grid/helix-ag-table";
 import { useHelixTableControls } from "@/components/grid/use-helix-table-controls";
 import { formatUkDate, formatUkDateTime } from "@/lib/format/date";
 import { formatDecimal, formatInteger } from "@/lib/format/number";
-import type { PortfolioTrade } from "@/lib/types/dashboard";
+import type { StrategyTrade } from "@/lib/types/dashboard";
 
-function normalizeTrade(trade: PortfolioTrade | Record<string, unknown>): PortfolioTrade {
+function normalizeTrade(trade: StrategyTrade | Record<string, unknown>): StrategyTrade {
   const raw = trade as Record<string, unknown>;
   return {
     trade_id: String(raw.trade_id ?? raw.tradeId ?? ""),
-    portfolio_id: String(raw.portfolio_id ?? raw.portfolioId ?? ""),
+    strategy_id: String(raw.strategy_id ?? raw.strategyId ?? raw.portfolio_id ?? raw.portfolioId ?? ""),
     position_id: String(raw.position_id ?? raw.positionId ?? ""),
     instrument_id: String(raw.instrument_id ?? raw.instrumentId ?? ""),
     instrument_name: String(raw.instrument_name ?? raw.instrumentName ?? ""),
@@ -48,7 +48,7 @@ const formatIntegerCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
 const formatDecimalCell: NonNullable<ColDef["valueFormatter"]> = (params) =>
   typeof params.value === "number" ? formatDecimal(params.value) : (params.value ?? "");
 
-const columnDefs: ColDef<PortfolioTrade>[] = [
+const columnDefs: ColDef<StrategyTrade>[] = [
   { field: "trade_id", headerName: "Trade ID", minWidth: 150 },
   { field: "instrument_id", headerName: "Instrument ID", minWidth: 130 },
   { field: "instrument_name", headerName: "Instrument Name", minWidth: 220 },
@@ -83,7 +83,7 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     filter: "agTextColumnFilter",
     cellDataType: "text",
     filterValueGetter: (params) =>
-      formatUkDateTime((params.data as PortfolioTrade | undefined)?.trade_timestamp),
+      formatUkDateTime((params.data as StrategyTrade | undefined)?.trade_timestamp),
   },
   {
     field: "settlement_date",
@@ -92,7 +92,7 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     filter: "agTextColumnFilter",
     cellDataType: "text",
     filterValueGetter: (params) =>
-      formatUkDate((params.data as PortfolioTrade | undefined)?.settlement_date),
+      formatUkDate((params.data as StrategyTrade | undefined)?.settlement_date),
   },
   { field: "book", headerName: "Book", minWidth: 160 },
   { field: "status", headerName: "Status", minWidth: 120 },
@@ -110,7 +110,7 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     filter: "agTextColumnFilter",
     cellDataType: "text",
     filterValueGetter: (params) =>
-      formatUkDateTime((params.data as PortfolioTrade | undefined)?.created_at),
+      formatUkDateTime((params.data as StrategyTrade | undefined)?.created_at),
   },
   {
     field: "updated_at",
@@ -119,11 +119,11 @@ const columnDefs: ColDef<PortfolioTrade>[] = [
     filter: "agTextColumnFilter",
     cellDataType: "text",
     filterValueGetter: (params) =>
-      formatUkDateTime((params.data as PortfolioTrade | undefined)?.updated_at),
+      formatUkDateTime((params.data as StrategyTrade | undefined)?.updated_at),
   },
 ];
 
-const defaultColDef: ColDef<PortfolioTrade> = {
+const defaultColDef: ColDef<StrategyTrade> = {
   sortable: true,
   filter: true,
   resizable: true,
@@ -165,11 +165,11 @@ const helpItems = [
   "Pagination buttons move through the filtered trades dataset page by page.",
 ];
 
-function buildMockTrade(seed: number): PortfolioTrade {
+function buildMockTrade(seed: number): StrategyTrade {
   const padded = String(seed).padStart(2, "0");
   return {
     trade_id: `TRD-PF-MOCK-2026040416263${padded}`,
-    portfolio_id: "PF-MK",
+    strategy_id: "STRAT-MK",
     position_id: `POS-MOCK-${padded}`,
     instrument_id: "NG1",
     instrument_name: "Natural Gas",
@@ -190,23 +190,23 @@ function buildMockTrade(seed: number): PortfolioTrade {
 }
 
 export function Trades({
-  portfolioId,
+  strategyId,
   initialTrades,
   isExpanded = false,
 }: Readonly<{
-  portfolioId: string;
-  initialTrades: PortfolioTrade[];
+  strategyId: string;
+  initialTrades: StrategyTrade[];
   isExpanded?: boolean;
 }>) {
   const [collapsed, setCollapsed] = useState(!isExpanded);
-  const [selectedTrade, setSelectedTrade] = useState<PortfolioTrade | null>(null);
+  const [selectedTrade, setSelectedTrade] = useState<StrategyTrade | null>(null);
   const [tradeSeed, setTradeSeed] = useState(0);
   const [trades, setTrades] = useState(initialTrades);
 
   const normalizedTrades = useMemo(
     () =>
       trades.map((trade) =>
-        normalizeTrade(trade as PortfolioTrade | Record<string, unknown>),
+        normalizeTrade(trade as StrategyTrade | Record<string, unknown>),
       ),
     [trades],
   );
@@ -233,8 +233,8 @@ export function Trades({
     handleClearSelection,
     handleFilterChanged,
     handleSelectionCountChanged,
-  } = useHelixTableControls<PortfolioTrade>({
-    csvFileName: `${portfolioId.toLowerCase()}-trades.csv`,
+  } = useHelixTableControls<StrategyTrade>({
+    csvFileName: `${strategyId.toLowerCase()}-trades.csv`,
     autoFitToken: normalizedTrades,
     onClearSelection: () => {
       setSelectedTrade(null);
@@ -445,22 +445,22 @@ export function Trades({
           columnDefs={columnDefs}
           defaultColDef={defaultColDef}
           rowIdField="trade_id"
-          onGridReady={(event: GridReadyEvent<PortfolioTrade>) => {
+          onGridReady={(event: GridReadyEvent<StrategyTrade>) => {
             attachApi(event.api);
             requestAnimationFrame(() => {
               handleFitColumnsToData();
               refreshPaginationState(event.api);
             });
           }}
-          onPaginationChanged={(event: PaginationChangedEvent<PortfolioTrade>) => {
+          onPaginationChanged={(event: PaginationChangedEvent<StrategyTrade>) => {
             refreshPaginationState(event.api);
           }}
-          onSelectionChanged={(event: SelectionChangedEvent<PortfolioTrade>) => {
+          onSelectionChanged={(event: SelectionChangedEvent<StrategyTrade>) => {
             const selectedRows = event.api.getSelectedRows();
             setSelectedTrade(selectedRows[0] ?? null);
             handleSelectionCountChanged(event.api);
           }}
-          onCellDoubleClicked={(event: CellDoubleClickedEvent<PortfolioTrade>) => {
+          onCellDoubleClicked={(event: CellDoubleClickedEvent<StrategyTrade>) => {
             if (!event.node) {
               return;
             }
@@ -469,7 +469,7 @@ export function Trades({
             setSelectedTrade(selectedRows[0] ?? null);
             handleSelectionCountChanged(event.api);
           }}
-          onFilterChanged={(event: FilterChangedEvent<PortfolioTrade>) => {
+          onFilterChanged={(event: FilterChangedEvent<StrategyTrade>) => {
             handleFilterChanged(event.api);
           }}
           gridOptions={{

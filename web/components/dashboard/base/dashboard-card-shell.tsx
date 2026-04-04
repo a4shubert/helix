@@ -39,10 +39,15 @@ export function DashboardCardShell({
           type="button"
           onClick={onToggle}
           aria-label={collapsed ? `Expand ${title}` : `Collapse ${title}`}
-          className="inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-visible rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-white transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
+          className="group inline-flex h-8 w-8 shrink-0 items-center justify-center overflow-visible rounded-full border border-[color:var(--color-border)] bg-[color:var(--color-bg)] text-white transition-colors hover:border-[color:var(--color-accent)] hover:text-[color:var(--color-accent)]"
           title={collapsed ? "Expand card" : "Collapse card"}
         >
-          <span className="block translate-y-[-1px] text-[1.2rem] font-light leading-[0.7]">
+          <span
+            className={[
+              "block translate-y-[-1px] text-[1.2rem] leading-[0.7]",
+              collapsed ? "font-light" : "font-medium text-white group-hover:text-[color:var(--color-accent)]",
+            ].join(" ")}
+          >
             {collapsed ? "+" : "-"}
           </span>
         </button>
@@ -87,7 +92,7 @@ export function DashboardCardShell({
             </div>
           ) : null}
           {subtitle ? (
-            <div className="text-sm font-medium tracking-[0.04em] text-white/90 md:text-base">
+            <div className="text-sm font-medium tracking-[0.04em] text-white md:text-base">
               {subtitle}
             </div>
           ) : null}
