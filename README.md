@@ -44,6 +44,20 @@ What the install scripts do:
 - install `helix-core` and `helix-runtime` into the runtime environment
 - ensure Kafka, RabbitMQ, and OpenJDK are installed when Homebrew is available
 
+After installation, launch the full stack with:
+
+Linux / macOS:
+
+```bash
+./scripts/demo/linux/launch.sh
+```
+
+Windows / PowerShell:
+
+```powershell
+./scripts/demo/windows/launch.ps1
+```
+
 ---
 
 ## Flow
@@ -233,7 +247,7 @@ Windows / PowerShell:
 ./scripts/demo/windows/clean.ps1
 ```
 
-Start the full production stack without rebuilding REST or web:
+Start the full production stack:
 
 Linux / macOS:
 
@@ -246,6 +260,16 @@ Windows / PowerShell:
 ```powershell
 ./scripts/demo/windows/launch.ps1
 ```
+
+What the `launch` scripts do:
+
+- start Kafka and RabbitMQ
+- build and publish `helix-rest` in `Release`
+- build the `helix-web` production bundle
+- start `helix-rest` from the published production output
+- start `helix-runtime`
+- start `helix-web` with the production server
+- write process logs under `.helix/logs`
 
 Compatibility aliases:
 
