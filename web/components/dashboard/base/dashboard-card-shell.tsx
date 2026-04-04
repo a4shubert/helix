@@ -7,6 +7,7 @@ export function DashboardCardShell({
   subtitle,
   collapsedValue,
   collapsedValuePositive,
+  collapsedValueAlignRight,
   hideTitle,
   centerTitle,
   collapsed,
@@ -18,6 +19,7 @@ export function DashboardCardShell({
   subtitle?: string;
   collapsedValue?: string;
   collapsedValuePositive?: boolean;
+  collapsedValueAlignRight?: boolean;
   hideTitle?: boolean;
   centerTitle?: boolean;
   collapsed: boolean;
@@ -48,12 +50,13 @@ export function DashboardCardShell({
         <div
           className={[
             "flex min-w-0 flex-1 flex-wrap items-center gap-x-4 gap-y-2",
+            collapsed && collapsedValue && collapsedValueAlignRight ? "justify-between" : "",
             centerTitle ? "justify-center text-center" : "",
           ].join(" ")}
         >
           {!hideTitle ? (
             <div className="text-sm font-semibold uppercase tracking-[0.14em] text-[color:var(--color-accent)] md:text-base">
-              {collapsed && collapsedValue ? (
+              {collapsed && collapsedValue && !collapsedValueAlignRight ? (
                 <>
                   {title}:{" "}
                   <span
@@ -69,6 +72,18 @@ export function DashboardCardShell({
               ) : (
                 title
               )}
+            </div>
+          ) : null}
+          {collapsed && collapsedValue && collapsedValueAlignRight ? (
+            <div
+              className={[
+                "ml-auto text-sm font-medium tabular-nums md:text-base",
+                collapsedValuePositive
+                  ? "text-[#2DD3B6] drop-shadow-[0_0_10px_rgba(45,211,182,0.28)]"
+                  : "text-[#f87171] drop-shadow-[0_0_10px_rgba(248,113,113,0.30)]",
+              ].join(" ")}
+            >
+              {collapsedValue}
             </div>
           ) : null}
           {subtitle ? (

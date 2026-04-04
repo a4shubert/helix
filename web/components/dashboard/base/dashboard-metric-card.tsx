@@ -15,6 +15,7 @@ export function DashboardMetricCard({
   subtitle,
   value,
   tone = "neutral",
+  isExpanded = true,
   valueClassName,
   children,
 }: Readonly<{
@@ -22,11 +23,15 @@ export function DashboardMetricCard({
   subtitle?: ReactNode;
   value: ReactNode;
   tone?: Tone;
+  isExpanded?: boolean;
   valueClassName?: string;
   children?: ReactNode;
 }>) {
   return (
-    <section className="shrink-0 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-5 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.35)]">
+    <section
+      data-initial-state={isExpanded ? "expanded" : "collapsed"}
+      className="shrink-0 rounded-2xl border border-[color:var(--color-border)] bg-[color:var(--color-card)]/70 px-5 py-4 shadow-[0_20px_60px_rgba(2,6,23,0.35)]"
+    >
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between md:gap-6">
         <div className="flex min-w-0 flex-wrap items-center gap-x-4 gap-y-2">
           <div

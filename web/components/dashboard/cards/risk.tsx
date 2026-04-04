@@ -2,18 +2,8 @@
 
 import { useState } from "react";
 import { DashboardCardShell } from "@/components/dashboard/base/dashboard-card-shell";
-import { formatUkDateTime } from "@/lib/format/date";
 import { formatSignedDecimal } from "@/lib/format/number";
 import type { MetricValue } from "@/lib/types/dashboard";
-
-function formatAsOfTimestamp(timestamp?: string | null): string | undefined {
-  if (!timestamp) {
-    return undefined;
-  }
-
-  const formatted = formatUkDateTime(timestamp);
-  return formatted ? `(${formatted})` : undefined;
-}
 
 function MetricsTable({ metrics }: Readonly<{ metrics: MetricValue[] }>) {
   return (
@@ -41,27 +31,26 @@ function MetricsTable({ metrics }: Readonly<{ metrics: MetricValue[] }>) {
   );
 }
 
-export function SummaryRiskCard({
+export function Risk({
   pnlMetrics,
   riskMetrics,
-  valuationTimestamp,
+  isExpanded = false,
 }: Readonly<{
   pnlMetrics: MetricValue[];
   riskMetrics: MetricValue[];
-  valuationTimestamp?: string;
+  isExpanded?: boolean;
 }>) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isExpanded);
   const totalPnl =
     pnlMetrics.find((metric) => metric.isPrimary)?.value ?? pnlMetrics[0]?.value ?? 0;
-  const subtitle = formatAsOfTimestamp(valuationTimestamp);
 
   return (
     <DashboardCardShell
-      title="P&L and Risk"
-      subtitle={subtitle}
+      title="Risk"
       collapsed={collapsed}
       collapsedValue={formatSignedDecimal(totalPnl)}
       collapsedValuePositive={totalPnl >= 0}
+      collapsedValueAlignRight
       onToggle={() => setCollapsed((value) => !value)}
     >
       <div className="mt-4 w-full">

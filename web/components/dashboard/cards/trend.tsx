@@ -15,21 +15,14 @@ import { formatUkDateTime } from "@/lib/format/date";
 import { formatDecimal, formatSignedDecimal } from "@/lib/format/number";
 import type { PnlTrendPoint } from "@/lib/types/dashboard";
 
-function formatAsOfTimestamp(timestamp?: string | null): string | undefined {
-  if (!timestamp) {
-    return undefined;
-  }
-
-  const formatted = formatUkDateTime(timestamp);
-  return formatted ? `(${formatted})` : undefined;
-}
-
-export function PnlTrendChartCard({
+export function Trend({
   points,
+  isExpanded = false,
 }: Readonly<{
   points: PnlTrendPoint[];
+  isExpanded?: boolean;
 }>) {
-  const [collapsed, setCollapsed] = useState(false);
+  const [collapsed, setCollapsed] = useState(!isExpanded);
   const [isMounted, setIsMounted] = useState(false);
   const latestPoint = points[points.length - 1];
 
@@ -40,10 +33,10 @@ export function PnlTrendChartCard({
   return (
     <DashboardCardShell
       title="Trend"
-      subtitle={formatAsOfTimestamp(latestPoint?.timestamp)}
       collapsed={collapsed}
       collapsedValue={latestPoint ? formatSignedDecimal(latestPoint.totalPnl) : undefined}
       collapsedValuePositive={(latestPoint?.totalPnl ?? 0) >= 0}
+      collapsedValueAlignRight
       onToggle={() => setCollapsed((value) => !value)}
       expandedClassName="h-[540px] shrink-0"
     >
@@ -62,13 +55,13 @@ export function PnlTrendChartCard({
                     timeZone: "Europe/London",
                   }).format(new Date(value))
                 }
-                tick={{ fill: "#d6dfeb", fontSize: 14 }}
+                tick={{ fill: "#d6dfeb", fontSize: 16 }}
                 axisLine={{ stroke: "rgba(255,255,255,0.14)" }}
-                tickLine={false}
+                tickLine={true}
               />
               <YAxis
                 tickFormatter={(value: number) => formatDecimal(value)}
-                tick={{ fill: "#d6dfeb", fontSize: 14 }}
+                tick={{ fill: "#d6dfeb", fontSize: 16 }}
                 axisLine={{ stroke: "rgba(255,255,255,0.14)" }}
                 tickLine={false}
                 width={108}
