@@ -1,11 +1,11 @@
 {
   "folders": [
-	{
-		"path": "."
-	},
-	{
-		"path": "../zbak_archive"
-	}
-],
-  "settings": {}
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "python.defaultInterpreterPath": "/opt/anaconda3/bin/python",
+    "python.terminal.activateEnvironment": false
+  }
 }
